@@ -235,12 +235,15 @@
 <main>
   <div class="card">
     <div class="drop" id="drop">
-      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0a2f5c" stroke-width="1.8"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
-      <strong>Toca para subir data.json</strong>
-      <span>El archivo que copiaste desde DevTools (Response del .jzon)</span>
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0a2f5c" stroke-width="1.8"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+      <strong>Subir nuevo data.json (opcional)</strong>
+      <span>Toca o arrastra aquí un archivo .json actualizado</span>
     </div>
     <input type="file" id="fileInput" accept=".json,.txt">
-    <div class="stat-line" id="fileStat"></div>
+    <div class="stat-line" id="fileStat" style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <span id="fileStatText">⌛ Cargando data.json...</span>
+      <button id="resetDataBtn" style="display:none;font-size:11px;padding:3px 8px;background:#fff;border:1px solid var(--line);border-radius:4px;cursor:pointer;color:var(--navy);">Restablecer al original</button>
+    </div>
   </div>
 
   <div class="card" id="filtersCard" style="display:none">
@@ -366,18 +369,71 @@ function populateSelect(sel, values, placeholder){
   sel.value = cur;
 }
 
-function loadData(text){
+// --- INDEXEDDB STORAGE FOR CUSTOM DATA.JSON ---
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('NovaDownloadDB', 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains('settings')) {
+        db.createObjectStore('settings');
+      }
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+async function getStoredData() {
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction('settings', 'readonly');
+      const store = tx.objectStore('settings');
+      const req = store.get('customDataJson');
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+  } catch(e) { return null; }
+}
+
+async function setStoredData(text, fileName) {
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction('settings', 'readwrite');
+      const store = tx.objectStore('settings');
+      store.put({ text, fileName, date: new Date().toISOString() }, 'customDataJson');
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  } catch(e) { return false; }
+}
+
+async function clearStoredData() {
+  try {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction('settings', 'readwrite');
+      const store = tx.objectStore('settings');
+      store.delete('customDataJson');
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  } catch(e) { return false; }
+}
+
+function loadData(text, isUserUpload = false){
   let json;
   try{
     json = JSON.parse(text);
   }catch(e){
-    alert('No se pudo leer el archivo. Asegúrate de subir el JSON completo tal como lo copiaste de DevTools.');
-    return;
+    if(isUserUpload) alert('No se pudo leer el archivo. Asegúrate de subir el JSON completo tal como lo copiaste de DevTools.');
+    return false;
   }
-  const rows = json.rows || json; // tolerate raw array too
+  const rows = json.rows || json;
   ROWS = (Array.isArray(rows) ? rows : []).map(r => r.data || r).filter(d => d && d[FIELD.op]);
 
-  document.getElementById('fileStat').textContent = `${ROWS.length} objetos cargados`;
   document.getElementById('filtersCard').style.display = 'block';
   document.getElementById('toolbar').style.display = 'flex';
   document.getElementById('hint').style.display = 'block';
@@ -418,6 +474,66 @@ function loadData(text){
   if(statuses.has('Abierta')) document.getElementById('statusFilter').value = 'Abierta';
 
   render();
+  return true;
+}
+
+async function initData() {
+  const statText = document.getElementById('fileStatText');
+  const resetBtn = document.getElementById('resetDataBtn');
+  statText.innerHTML = '⌛ Cargando data.json...';
+
+  const custom = await getStoredData();
+  if(custom && custom.text){
+    const ok = loadData(custom.text, false);
+    if(ok){
+      const d = new Date(custom.date);
+      const fDate = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+      statText.innerHTML = `✅ <b>data.json personalizado cargado</b> (${ROWS.length} objetos · guardado el ${fDate})`;
+      resetBtn.style.display = 'inline-block';
+      return;
+    }
+  }
+  fetchDefaultData();
+}
+
+async function fetchDefaultData() {
+  const statText = document.getElementById('fileStatText');
+  const resetBtn = document.getElementById('resetDataBtn');
+  statText.innerHTML = '⌛ Cargando data.json por defecto...';
+  resetBtn.style.display = 'none';
+
+  try {
+    const res = await fetch('./data.json');
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    const ok = loadData(text, false);
+    if(ok){
+      statText.innerHTML = `✅ <b>data.json por defecto cargado</b> (${ROWS.length} objetos)`;
+    } else {
+      statText.innerHTML = `⚠️ Error al procesar data.json por defecto. Puedes subir uno manualmente abajo.`;
+    }
+  } catch(e) {
+    statText.innerHTML = `⚠️ No se pudo cargar data.json por defecto. Sube uno manualmente abajo.`;
+  }
+}
+
+async function handleUserFileUpload(file) {
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    const text = ev.target.result;
+    const ok = loadData(text, true);
+    if(ok){
+      await setStoredData(text, file.name);
+      const statText = document.getElementById('fileStatText');
+      const resetBtn = document.getElementById('resetDataBtn');
+      const now = new Date();
+      const fDate = now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+      statText.innerHTML = `✅ <b>Nuevo data.json subido y guardado localmente</b> (${ROWS.length} objetos · ${fDate})`;
+      resetBtn.style.display = 'inline-block';
+    }
+  };
+  reader.readAsText(file);
 }
 
 function getPhotoList(d){
@@ -657,10 +773,7 @@ const fileInput = document.getElementById('fileInput');
 drop.addEventListener('click', ()=> fileInput.click());
 fileInput.addEventListener('change', (e)=>{
   const f = e.target.files[0];
-  if(!f) return;
-  const reader = new FileReader();
-  reader.onload = ev => loadData(ev.target.result);
-  reader.readAsText(f);
+  if(f) handleUserFileUpload(f);
 });
 ['dragover','dragleave','drop'].forEach(evt=>{
   drop.addEventListener(evt, e=>{
@@ -670,11 +783,18 @@ fileInput.addEventListener('change', (e)=>{
 });
 drop.addEventListener('drop', e=>{
   const f = e.dataTransfer.files[0];
-  if(!f) return;
-  const reader = new FileReader();
-  reader.onload = ev => loadData(ev.target.result);
-  reader.readAsText(f);
+  if(f) handleUserFileUpload(f);
 });
+
+document.getElementById('resetDataBtn').addEventListener('click', async ()=>{
+  if(confirm('¿Restablecer al data.json por defecto del servidor?')){
+    await clearStoredData();
+    fetchDefaultData();
+  }
+});
+
+// Precargar datos al iniciar la página
+initData();
 </script>
 
 </body>
