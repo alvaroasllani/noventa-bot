@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>NOVAHAUS · Descargador</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   :root{
     --navy:#0a2f5c;
@@ -661,6 +662,32 @@ function codeFor(d){
   return `${prefix}${d[FIELD.code] ?? ''}`;
 }
 
+async function downloadDirectPhoto(id, filename){
+  try {
+    const res = await fetch(`https://lh3.googleusercontent.com/d/${id}`);
+    if(!res.ok) throw new Error('Fetch HTTP ' + res.status);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+    return true;
+  } catch(e) {
+    const a = document.createElement('a');
+    a.href = `https://lh3.googleusercontent.com/d/${id}`;
+    a.download = filename;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return false;
+  }
+}
+
 async function downloadObject(d, btn){
   const list = getPhotoList(d).slice(0, 10);
   if(!list.length){
@@ -675,12 +702,63 @@ async function downloadObject(d, btn){
 
   for(let i=0; i<list.length; i++){
     pill.textContent = `${i+1}/${list.length}`;
-    triggerDownload(driveDownloadUrl(list[i]));
-    await new Promise(res => setTimeout(res, 900));
+    const numStr = String(i+1).padStart(2, '0');
+    const filename = i === 0 ? `${code}_01_Portada.jpg` : `${code}_${numStr}_Foto.jpg`;
+    await downloadDirectPhoto(list[i], filename);
+    await new Promise(res => setTimeout(res, 500));
   }
-  pill.textContent = `Listo (${list.length})`;
+  pill.textContent = `✅ Listo (${list.length})`;
   btn.disabled = false;
-  setTimeout(()=>{ pill.classList.remove('show'); }, 3000);
+  setTimeout(()=>{ pill.classList.remove('show'); }, 4000);
+}
+
+async function downloadObjectZip(d, btn){
+  const list = getPhotoList(d).slice(0, 10);
+  if(!list.length){
+    alert('Este objeto no tiene fotos detectadas.');
+    return;
+  }
+  if(typeof JSZip === 'undefined'){
+    return downloadObject(d, btn);
+  }
+  const code = codeFor(d);
+
+  btn.disabled = true;
+  const pill = btn.parentElement.querySelector('.progress-pill');
+  pill.classList.add('show');
+  pill.textContent = 'Creando ZIP...';
+
+  try {
+    const zip = new JSZip();
+    const folder = zip.folder(code);
+
+    for(let i=0; i<list.length; i++){
+      pill.textContent = `${i+1}/${list.length}`;
+      const res = await fetch(`https://lh3.googleusercontent.com/d/${list[i]}`);
+      const blob = await res.blob();
+      const numStr = String(i+1).padStart(2, '0');
+      const filename = i === 0 ? `01_Portada_${code}.jpg` : `${numStr}_Foto_${code}.jpg`;
+      folder.file(filename, blob);
+    }
+
+    pill.textContent = 'Guardando ZIP...';
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const blobUrl = URL.createObjectURL(zipBlob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = `${code}_Fotos.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+    pill.textContent = `✅ ZIP guardado (${list.length})`;
+  } catch(err) {
+    alert('No se pudo empaquetar el ZIP. Descargando fotos individuales...');
+    await downloadObject(d, btn);
+  } finally {
+    btn.disabled = false;
+    setTimeout(()=>{ pill.classList.remove('show'); }, 4000);
+  }
 }
 
 function render(){
@@ -710,8 +788,9 @@ function render(){
           <div class="obj-meta">${d[FIELD.zone]||''} · ${d[FIELD.currency]||''} ${d[FIELD.price]??''} · ${count} foto${count===1?'':'s'}</div>
         </div>
       </div>
-      <div class="obj-actions">
-        <button class="btn btn-primary">Descargar fotos</button>
+      <div class="obj-actions" style="flex-wrap:wrap;">
+        <button class="btn btn-primary btn-dl-jpg">Descargar fotos (.jpg)</button>
+        <button class="btn btn-ghost btn-dl-zip" style="background:#eef3fa;border-color:#b7c6de;color:var(--navy);">📦 Descargar ZIP</button>
         <button class="btn btn-ghost toggle-links">Ver enlaces (${count})</button>
         <button class="btn btn-ghost toggle-raw">Ver datos</button>
         <span class="progress-pill"></span>
@@ -722,11 +801,16 @@ function render(){
     const linksList = el.querySelector('.links-list');
     photoList.slice(0,10).forEach((id,i)=>{
       const link = document.createElement('a');
-      link.href = driveDownloadUrl(id);
-      link.target = '_blank';
-      link.rel = 'noopener';
+      link.href = `https://lh3.googleusercontent.com/d/${id}`;
       link.textContent = i === 0 ? `Foto 1 (Portada)` : `Foto ${i+1}`;
-      link.style.cssText = `display:inline-block;margin:3px 6px 3px 0;padding:6px 10px;background:${i===0?'#0a2f5c':'#eef3fa'};color:${i===0?'#fff':'#0a2f5c'};border-radius:6px;font-size:12px;text-decoration:none;font-weight:${i===0?'bold':'normal'};`;
+      link.style.cssText = `display:inline-block;margin:3px 6px 3px 0;padding:6px 10px;background:${i===0?'#0a2f5c':'#eef3fa'};color:${i===0?'#fff':'#0a2f5c'};border-radius:6px;font-size:12px;text-decoration:none;font-weight:${i===0?'bold':'normal'};cursor:pointer;`;
+      link.addEventListener('click', (ev)=>{
+        ev.preventDefault();
+        const code = codeFor(d);
+        const numStr = String(i+1).padStart(2, '0');
+        const filename = i === 0 ? `${code}_01_Portada.jpg` : `${code}_${numStr}_Foto.jpg`;
+        downloadDirectPhoto(id, filename);
+      });
       linksList.appendChild(link);
     });
     const rawBox = el.querySelector('.raw-data');
@@ -738,7 +822,8 @@ function render(){
     el.querySelector('.toggle-raw').addEventListener('click', ()=>{
       rawBox.style.display = rawBox.style.display === 'none' ? 'block' : 'none';
     });
-    el.querySelector('.btn-primary').addEventListener('click', (e)=> downloadObject(d, e.target));
+    el.querySelector('.btn-dl-jpg').addEventListener('click', (e)=> downloadObject(d, e.target));
+    el.querySelector('.btn-dl-zip').addEventListener('click', (e)=> downloadObjectZip(d, e.target));
     container.appendChild(el);
   });
 }
