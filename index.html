@@ -327,13 +327,13 @@
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0a2f5c" stroke-width="1.8">
           <path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
         </svg>
-        <strong>Subir nuevo DATOS (opcional)</strong>
+        <strong>Subir nuevo data.json (opcional)</strong>
         <span>Toca o arrastra aquí un archivo .json actualizado</span>
       </div>
       <input type="file" id="fileInput" accept=".json,.txt">
       <div class="stat-line" id="fileStat"
         style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-        <span id="fileStatText">⌛ Cargando DATOS...</span>
+        <span id="fileStatText">⌛ Cargando data.json...</span>
         <button id="resetDataBtn"
           style="display:none;font-size:11px;padding:3px 8px;background:#fff;border:1px solid var(--line);border-radius:4px;cursor:pointer;color:var(--navy);">Restablecer
           al original</button>
@@ -490,7 +490,7 @@
       sel.value = cur;
     }
 
-    // --- INDEXEDDB STORAGE FOR CUSTOM DATOS ---
+    // --- INDEXEDDB STORAGE FOR CUSTOM DATA.JSON ---
     function openDB() {
       return new Promise((resolve, reject) => {
         const req = indexedDB.open('NovaDownloadDB', 1);
@@ -601,7 +601,7 @@
     async function initData() {
       const statText = document.getElementById('fileStatText');
       const resetBtn = document.getElementById('resetDataBtn');
-      statText.innerHTML = '⌛ Cargando DATOS...';
+      statText.innerHTML = '⌛ Cargando data.json...';
 
       const custom = await getStoredData();
       if (custom && custom.text) {
@@ -609,7 +609,7 @@
         if (ok) {
           const d = new Date(custom.date);
           const fDate = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          statText.innerHTML = `✅ <b>DATOS personalizado cargado</b> (${ROWS.length} objetos · guardado el ${fDate})`;
+          statText.innerHTML = `✅ <b>data.json personalizado cargado</b> (${ROWS.length} objetos · guardado el ${fDate})`;
           resetBtn.style.display = 'inline-block';
           return;
         }
@@ -620,21 +620,21 @@
     async function fetchDefaultData() {
       const statText = document.getElementById('fileStatText');
       const resetBtn = document.getElementById('resetDataBtn');
-      statText.innerHTML = '⌛ Cargando DATOS por defecto...';
+      statText.innerHTML = '⌛ Cargando data.json por defecto...';
       resetBtn.style.display = 'none';
 
       try {
-        const res = await fetch('./DATOS');
+        const res = await fetch('./data.json');
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const text = await res.text();
         const ok = loadData(text, false);
         if (ok) {
-          statText.innerHTML = `✅ <b>DATOS por defecto cargado</b> (${ROWS.length} objetos)`;
+          statText.innerHTML = `✅ <b>data.json por defecto cargado</b> (${ROWS.length} objetos)`;
         } else {
-          statText.innerHTML = `⚠️ Error al procesar DATOS por defecto. Puedes subir uno manualmente abajo.`;
+          statText.innerHTML = `⚠️ Error al procesar data.json por defecto. Puedes subir uno manualmente abajo.`;
         }
       } catch (e) {
-        statText.innerHTML = `⚠️ No se pudo cargar DATOS por defecto. Sube uno manualmente abajo.`;
+        statText.innerHTML = `⚠️ No se pudo cargar data.json por defecto. Sube uno manualmente abajo.`;
       }
     }
 
@@ -650,7 +650,7 @@
           const resetBtn = document.getElementById('resetDataBtn');
           const now = new Date();
           const fDate = now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          statText.innerHTML = `✅ <b>Nuevo DATOS subido y guardado localmente</b> (${ROWS.length} objetos · ${fDate})`;
+          statText.innerHTML = `✅ <b>Nuevo data.json subido y guardado localmente</b> (${ROWS.length} objetos · ${fDate})`;
           resetBtn.style.display = 'inline-block';
         }
       };
@@ -716,7 +716,7 @@
         if (pasteStat) {
           if (missingCodes.length > 0 || matchedRows.length < pastedCodes.length) {
             const missingList = missingCodes.length > 0 ? missingCodes.join(', ') : 'Código duplicado o sin coincidencia directa';
-            pasteStat.innerHTML = `📋 <b>${pastedCodes.length}</b> códigos detectados (<b>${matchedRows.length}</b> encontrados) · <span style="color:#d9534f;font-weight:700;background:#fdf2f2;padding:2px 6px;border-radius:4px;border:1px solid #f5c6cb;">⚠️ No está en tu DATOS: ${missingList}</span>`;
+            pasteStat.innerHTML = `📋 <b>${pastedCodes.length}</b> códigos detectados (<b>${matchedRows.length}</b> encontrados) · <span style="color:#d9534f;font-weight:700;background:#fdf2f2;padding:2px 6px;border-radius:4px;border:1px solid #f5c6cb;">⚠️ No está en tu data.json: ${missingList}</span>`;
           } else {
             pasteStat.innerHTML = `✅ <b>${pastedCodes.length}</b> códigos detectados y encontrados correctamente.`;
           }
@@ -1010,7 +1010,7 @@
     });
 
     document.getElementById('resetDataBtn').addEventListener('click', async () => {
-      if (confirm('¿Restablecer al DATOS por defecto del servidor?')) {
+      if (confirm('¿Restablecer al data.json por defecto del servidor?')) {
         await clearStoredData();
         fetchDefaultData();
       }
