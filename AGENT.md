@@ -96,7 +96,7 @@ PROF / LOCAL       → PROF
 
 ## File locations
 
-- `c:\Users\ALVARO\Documents\Proyectos\NovaDownload\novahaus-descargador.html` — main tool (single self-contained HTML file)
+- `c:\Users\ALVARO\Documents\Proyectos\NovaDownload\index.html` (and `novahaus-descargador.html`) — main tool entry point (single self-contained HTML file)
 - `c:\Users\ALVARO\Documents\Proyectos\NovaDownload\data.json` — local dataset sample
 - `c:\Users\ALVARO\Documents\Proyectos\NovaDownload\AGENT.md` — project context & documentation
 

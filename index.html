@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>NOVAHAUS · Descargador</title>
+<style>
+  :root{
+    --navy:#0a2f5c;
+    --navy-deep:#071f3f;
+    --paper:#f6f4ef;
+    --ink:#12203a;
+    --line:#dcd7c9;
+    --accent:#c07a2e;
+    --ok:#2f7a4f;
+    --muted:#7c8494;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    -webkit-tap-highlight-color:transparent;
+  }
+  header{
+    background:var(--navy);
+    color:#fff;
+    padding:18px 16px 16px;
+    position:sticky;
+    top:0;
+    z-index:10;
+    box-shadow:0 2px 10px rgba(0,0,0,.15);
+  }
+  header .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:2px;
+  }
+  header .brand-mark{
+    width:26px;height:26px;
+    background:linear-gradient(135deg,#3d6fb0,#0a2f5c);
+    border-radius:6px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:14px;
+  }
+  header h1{
+    font-size:17px;
+    margin:0;
+    font-weight:700;
+    letter-spacing:.2px;
+  }
+  header p{
+    margin:2px 0 0;
+    font-size:12.5px;
+    color:#b7c6de;
+  }
+  main{
+    max-width:720px;
+    margin:0 auto;
+    padding:16px 14px 60px;
+  }
+  .card{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:14px;
+    margin-bottom:14px;
+  }
+  .drop{
+    border:2px dashed #b9c3d6;
+    border-radius:10px;
+    padding:26px 14px;
+    text-align:center;
+    background:#fbfbf9;
+    cursor:pointer;
+  }
+  .drop.dragover{ border-color:var(--navy); background:#eef3fa; }
+  .drop svg{ margin-bottom:8px; }
+  .drop strong{ display:block; font-size:14.5px; color:var(--navy); }
+  .drop span{ display:block; font-size:12px; color:var(--muted); margin-top:4px; }
+  input[type=file]{ display:none; }
+
+  .filters{ display:flex; flex-direction:column; gap:10px; }
+  .row{ display:flex; gap:8px; }
+  select{
+    flex:1;
+    padding:10px 8px;
+    border-radius:8px;
+    border:1px solid var(--line);
+    background:#fff;
+    font-size:14px;
+    color:var(--ink);
+  }
+  .stat-line{
+    font-size:12.5px;
+    color:var(--muted);
+    margin-top:2px;
+  }
+  .stat-line b{ color:var(--navy); }
+
+  .obj{
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:#fff;
+    margin-bottom:10px;
+    overflow:hidden;
+  }
+  .obj-head{
+    display:flex;
+    gap:10px;
+    padding:12px;
+    align-items:flex-start;
+  }
+  .obj-thumb{
+    width:56px;height:56px;
+    border-radius:8px;
+    background:#e4e8ef;
+    flex-shrink:0;
+    background-size:cover;
+    background-position:center;
+  }
+  .obj-info{ flex:1; min-width:0; }
+  .obj-code{
+    font-size:11px;
+    font-weight:700;
+    color:var(--accent);
+    letter-spacing:.3px;
+  }
+  .obj-title{
+    font-size:13.5px;
+    font-weight:600;
+    color:var(--ink);
+    margin:2px 0 2px;
+    line-height:1.3;
+  }
+  .obj-meta{
+    font-size:12px;
+    color:var(--muted);
+  }
+  .obj-actions{
+    padding:0 12px 12px;
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+  .btn{
+    border:none;
+    border-radius:8px;
+    padding:9px 14px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .btn-primary{ background:var(--navy); color:#fff; }
+  .btn-primary:active{ background:var(--navy-deep); }
+  .btn-primary:disabled{ background:#aab6c8; cursor:default; }
+  .btn-ghost{
+    background:transparent;
+    color:var(--navy);
+    border:1px solid var(--line);
+  }
+  .progress-pill{
+    font-size:12px;
+    color:var(--ok);
+    font-weight:600;
+    display:none;
+  }
+  .progress-pill.show{ display:inline; }
+
+  .empty{
+    text-align:center;
+    padding:30px 10px;
+    color:var(--muted);
+    font-size:13px;
+  }
+  .toolbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:10px;
+  }
+  .toolbar h2{
+    font-size:14px;
+    margin:0;
+    color:var(--navy);
+  }
+  .note{
+    font-size:11.5px;
+    color:var(--muted);
+    line-height:1.5;
+    margin-top:8px;
+  }
+  .badge{
+    display:inline-block;
+    font-size:10.5px;
+    font-weight:700;
+    padding:2px 7px;
+    border-radius:100px;
+    background:#eef3fa;
+    color:var(--navy);
+    margin-left:6px;
+  }
+  .chip{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    border:1px solid var(--line);
+    border-radius:100px;
+    padding:6px 12px;
+    font-size:13px;
+    background:#fff;
+    cursor:pointer;
+    user-select:none;
+  }
+  .chip.active{
+    background:var(--navy);
+    color:#fff;
+    border-color:var(--navy);
+  }
+  .chip input{ display:none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-mark">🏠</div>
+    <h1>Descargador de fotos</h1>
+  </div>
+  <p>Carga el archivo de datos, filtra por categoría y descarga en orden</p>
+</header>
+
+<main>
+  <div class="card">
+    <div class="drop" id="drop">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#0a2f5c" stroke-width="1.8"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+      <strong>Toca para subir data.json</strong>
+      <span>El archivo que copiaste desde DevTools (Response del .jzon)</span>
+    </div>
+    <input type="file" id="fileInput" accept=".json,.txt">
+    <div class="stat-line" id="fileStat"></div>
+  </div>
+
+  <div class="card" id="filtersCard" style="display:none">
+    <div style="background:#eef3fa;border:1px solid #b7c6de;border-radius:8px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:13.5px;font-weight:700;color:var(--navy);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+        <span>📋 Pegar lista de publicaciones (App / WhatsApp)</span>
+        <button id="clearPasteBtn" style="font-size:11px;padding:3px 8px;background:#fff;border:1px solid var(--line);border-radius:4px;cursor:pointer;">Limpiar texto</button>
+      </div>
+      <textarea id="pasteInput" placeholder="Pega aquí el texto copiado de tu app o lista con códigos (ej. VEN648, ALQ779, PROF73)..." style="width:100%;height:110px;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit;outline:none;resize:vertical;"></textarea>
+      <div id="pasteStat" style="font-size:12px;color:var(--navy);font-weight:600;margin-top:4px;"></div>
+    </div>
+
+    <details style="margin-bottom:10px;">
+      <summary style="font-size:13px;font-weight:600;color:var(--navy);cursor:pointer;">🎛️ Ver / Ocultar Filtros Manuales (Día, Operación, Asesor...)</summary>
+      <div class="filters" style="margin-top:10px;">
+        <div class="row">
+          <input type="text" id="searchInput" placeholder="🔍 Buscar por código o título (ej. ALQ142)..." style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;outline:none;">
+        </div>
+        <div class="row">
+          <select id="opFilter"><option value="">Operación (todas)</option></select>
+          <select id="typeFilter"><option value="">Tipo (todos)</option></select>
+        </div>
+        <div class="row">
+          <select id="activeFilter">
+            <option value="si" selected>Publicación: Activa (Si)</option>
+            <option value="">Publicación: Todas (incluir inactivas)</option>
+            <option value="no">Publicación: Inactiva (No)</option>
+          </select>
+          <select id="zoneFilter"><option value="">Zona (todas)</option></select>
+        </div>
+        <div class="row">
+          <select id="dayFilter"><option value="">Día de publicación (todos)</option></select>
+          <select id="statusFilter"><option value="">Estado (todos)</option></select>
+        </div>
+        <div class="row">
+          <select id="agentFilter"><option value="">Asesor (todos)</option></select>
+        </div>
+        <div>
+          <div style="font-size:12.5px;color:var(--muted);margin-bottom:6px;">Grupo Planificador (igual que el filtro "Filtrar" de la app)</div>
+          <div id="groupChecks" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+        </div>
+      </div>
+    </details>
+    <div class="stat-line" id="resultStat"></div>
+  </div>
+
+  <div class="toolbar" id="toolbar" style="display:none">
+    <h2>Resultados</h2>
+    <button class="btn btn-ghost" id="downloadAllBtn">Descargar todo lo filtrado</button>
+  </div>
+
+  <div id="results"></div>
+
+  <div class="note" id="hint" style="display:none">
+    Cada objeto descarga hasta 10 fotos en orden (o todas si tiene menos), directo a tu carpeta de Descargas. Por defecto se muestra lo mismo que "Planificador": día de hoy + estado Abierta — puedes cambiar los filtros para ver otras combinaciones.
+  </div>
+</main>
+
+<script>
+let ROWS = [];
+const FIELD = {
+  op: 'mERYr',       // ALQUILER / VENTA / PREVENTA / ANTICRETICO / ...
+  type: 'oHoAu',      // Departamento / Casa / Local comercial ...
+  zone: 'WIoeb',
+  title: '5kIsO',
+  price: 'GRkSW',
+  currency: 'UOFib',
+  code: 'lak0f',
+  cover: '0C9DE',
+  photos: '7fYNu',
+  day: 'a6X7r',        // día programado de publicación (ej. "Domingo")
+  status: 'TieEY',     // estado (ej. "Abierta")
+  group: 'UZGXo',      // grupo del Planificador (1-5, checkboxes en la app)
+  active: '34Af3',     // publicado / activo ("si" vs "no")
+  agent: 'PJe5x'       // Asesor / Supervisor responsable
+};
+
+const PREFIX = {
+  'ALQUILER': 'ALQ',
+  'VENTA': 'VEN',
+  'PREVENTA': 'PREV',
+  'ANTICRETICO': 'ANT',
+  'ENTREGA INMEDIATA': 'ENTR',
+  'PROF / LOCAL': 'PROF'
+};
+
+function driveIdFromUrl(url){
+  const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  return m ? m[1] : null;
+}
+function driveDownloadUrl(id){
+  return `https://drive.google.com/uc?export=download&id=${id}`;
+}
+function triggerDownload(url){
+  // Enlace visible en vez de iframe oculto: si Drive muestra una pantalla
+  // intermedia (archivo grande / advertencia), el usuario la ve y puede confirmarla.
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+function driveThumbUrl(id){
+  return `https://drive.google.com/thumbnail?id=${id}&sz=w200`;
+}
+
+function parsePhotos(str){
+  if(!str) return [];
+  return str.split(',').map(s => s.trim()).filter(Boolean)
+    .map(driveIdFromUrl).filter(Boolean);
+}
+
+function populateSelect(sel, values, placeholder){
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">${placeholder}</option>`;
+  [...values].sort().forEach(v=>{
+    const o = document.createElement('option');
+    o.value = v; o.textContent = v;
+    sel.appendChild(o);
+  });
+  sel.value = cur;
+}
+
+function loadData(text){
+  let json;
+  try{
+    json = JSON.parse(text);
+  }catch(e){
+    alert('No se pudo leer el archivo. Asegúrate de subir el JSON completo tal como lo copiaste de DevTools.');
+    return;
+  }
+  const rows = json.rows || json; // tolerate raw array too
+  ROWS = (Array.isArray(rows) ? rows : []).map(r => r.data || r).filter(d => d && d[FIELD.op]);
+
+  document.getElementById('fileStat').textContent = `${ROWS.length} objetos cargados`;
+  document.getElementById('filtersCard').style.display = 'block';
+  document.getElementById('toolbar').style.display = 'flex';
+  document.getElementById('hint').style.display = 'block';
+
+  const ops = new Set(), types = new Set(), zones = new Set(), days = new Set(), statuses = new Set(), agents = new Set();
+  ROWS.forEach(d=>{
+    if(d[FIELD.op]) ops.add(d[FIELD.op]);
+    if(d[FIELD.type]) types.add(d[FIELD.type]);
+    if(d[FIELD.zone]) zones.add(d[FIELD.zone]);
+    if(d[FIELD.day]) days.add(d[FIELD.day]);
+    if(d[FIELD.status]) statuses.add(d[FIELD.status]);
+    const ag = d[FIELD.agent] || d['Lt6BS'];
+    if(ag) agents.add(ag);
+  });
+  populateSelect(document.getElementById('opFilter'), ops, 'Operación (todas)');
+  populateSelect(document.getElementById('typeFilter'), types, 'Tipo (todos)');
+  populateSelect(document.getElementById('zoneFilter'), zones, 'Zona (todas)');
+  populateSelect(document.getElementById('dayFilter'), days, 'Día de publicación (todos)');
+  populateSelect(document.getElementById('statusFilter'), statuses, 'Estado (todos)');
+  populateSelect(document.getElementById('agentFilter'), agents, 'Asesor (todos)');
+
+  const groupWrap = document.getElementById('groupChecks');
+  groupWrap.innerHTML = '';
+  [1,2,3,4,5].forEach(n=>{
+    const label = document.createElement('label');
+    label.className = 'chip';
+    label.innerHTML = `<input type="checkbox" value="${n}"> ${n}`;
+    label.querySelector('input').addEventListener('change', (e)=>{
+      label.classList.toggle('active', e.target.checked);
+      render();
+    });
+    groupWrap.appendChild(label);
+  });
+
+  // Por defecto: imitar la vista "Planificador" — día de hoy + estado Abierta, si existen esos valores
+  const todayName = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][new Date().getDay()];
+  if(days.has(todayName)) document.getElementById('dayFilter').value = todayName;
+  if(statuses.has('Abierta')) document.getElementById('statusFilter').value = 'Abierta';
+
+  render();
+}
+
+function getPhotoList(d){
+  const list = [];
+  const coverId = driveIdFromUrl(d[FIELD.cover] || '');
+  if(coverId) list.push(coverId);
+
+  // Escanear todas las propiedades de d para capturar fotos adicionales en campos como P0E5J, RiqQn, 7fYNu, etc.
+  Object.values(d).forEach(val => {
+    if(typeof val === 'string' && !val.includes('/drive/folders/')){
+      val.split(',').forEach(part => {
+        const id = driveIdFromUrl(part.trim());
+        if(id && !list.includes(id)){
+          list.push(id);
+        }
+      });
+    }
+  });
+  return list;
+}
+
+function extractCodesFromText(text){
+  if(!text) return [];
+  // Detecta ÚNICAMENTE prefijos válidos de NOVAHAUS: ALQ, VEN, PREV, ANT, ENTR, PROF seguidos de números
+  const matches = [...text.matchAll(/\b(ALQ|VEN|PREV|ANT|ENTR|PROF)\s*#?\s*(\d+)\b/gi)];
+  const codes = matches.map(m => `${m[1].toUpperCase()}${m[2]}`);
+  return Array.from(new Set(codes));
+}
+
+function currentFiltered(){
+  const pasteText = document.getElementById('pasteInput')?.value || '';
+  const pastedCodes = extractCodesFromText(pasteText);
+  const pasteStat = document.getElementById('pasteStat');
+
+  if(pastedCodes.length > 0){
+    const matchedRows = [];
+    const missingCodes = [];
+
+    pastedCodes.forEach(c => {
+      const codeNum = c.replace(/^[A-Z]+/, '');
+      const prefix = c.replace(/\d+$/, '');
+
+      const found = ROWS.find(d => {
+        if(codeFor(d) === c) return true;
+        if(String(d[FIELD.code]) === codeNum && (PREFIX[d[FIELD.op]] === prefix || !d[FIELD.op])) return true;
+        const rowStr = JSON.stringify(d).toUpperCase();
+        if(rowStr.includes(c)) return true;
+        return false;
+      });
+
+      if(found){
+        if(!matchedRows.includes(found)) matchedRows.push(found);
+      } else {
+        missingCodes.push(c);
+      }
+    });
+
+    if(pasteStat){
+      if(missingCodes.length > 0){
+        pasteStat.innerHTML = `✅ <b>${pastedCodes.length}</b> códigos detectados (<b>${matchedRows.length}</b> encontrados · <span style="color:#c0392b;">⚠️ No está en tu data.json: ${missingCodes.join(', ')}</span>)`;
+      } else {
+        pasteStat.innerHTML = `✅ <b>${pastedCodes.length}</b> códigos detectados y encontrados correctamente.`;
+      }
+    }
+    return matchedRows;
+  } else {
+    if(pasteStat) pasteStat.innerHTML = '';
+  }
+
+  const search = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
+  const active = document.getElementById('activeFilter')?.value || 'si';
+  const op = document.getElementById('opFilter').value;
+  const type = document.getElementById('typeFilter').value;
+  const zone = document.getElementById('zoneFilter').value;
+  const day = document.getElementById('dayFilter').value;
+  const status = document.getElementById('statusFilter').value;
+  const agent = document.getElementById('agentFilter')?.value || '';
+  const checkedGroups = [...document.querySelectorAll('#groupChecks input:checked')].map(i => String(i.value));
+
+  return ROWS.filter(d=>{
+    const code = codeFor(d).toLowerCase();
+    const title = (d[FIELD.title] || '').toLowerCase();
+    
+    // Si hay texto de búsqueda (ej. "ALQ142" o "142"), priorizar coincidencia por código o título
+    if(search){
+      if(!code.includes(search) && !title.includes(search)) return false;
+      return true; // si coincide la búsqueda explícita, se muestra para poder inspeccionar
+    }
+
+    if(active === 'si' && d[FIELD.active] && String(d[FIELD.active]).toLowerCase() === 'no') return false;
+    if(active === 'no' && String(d[FIELD.active]).toLowerCase() !== 'no') return false;
+
+    if(op && d[FIELD.op] !== op) return false;
+    if(type && d[FIELD.type] !== type) return false;
+    if(zone && d[FIELD.zone] !== zone) return false;
+    if(day && d[FIELD.day] !== day) return false;
+    if(status){
+      if(d[FIELD.status] !== status) return false;
+    }else{
+      // Si estado está en (todos), ignorar por defecto las cerradas (negociaciones concluidas)
+      if(d[FIELD.status] === 'Cerrada') return false;
+    }
+    if(agent && (d[FIELD.agent] || d['Lt6BS']) !== agent) return false;
+
+    if(checkedGroups.length){
+      const val = d[FIELD.group];
+      if(val !== undefined && val !== null && val !== ''){
+        const strVal = String(val);
+        const isMatch = checkedGroups.some(g => strVal.includes(g));
+        if(!isMatch) return false;
+      }
+    }
+
+    return true;
+  });
+}
+
+function codeFor(d){
+  const prefix = PREFIX[d[FIELD.op]] || 'OBJ';
+  return `${prefix}${d[FIELD.code] ?? ''}`;
+}
+
+async function downloadObject(d, btn){
+  const list = getPhotoList(d).slice(0, 10);
+  if(!list.length){
+    alert('Este objeto no tiene fotos detectadas.');
+    return;
+  }
+  const code = codeFor(d);
+
+  btn.disabled = true;
+  const pill = btn.parentElement.querySelector('.progress-pill');
+  pill.classList.add('show');
+
+  for(let i=0; i<list.length; i++){
+    pill.textContent = `${i+1}/${list.length}`;
+    triggerDownload(driveDownloadUrl(list[i]));
+    await new Promise(res => setTimeout(res, 900));
+  }
+  pill.textContent = `Listo (${list.length})`;
+  btn.disabled = false;
+  setTimeout(()=>{ pill.classList.remove('show'); }, 3000);
+}
+
+function render(){
+  const list = currentFiltered();
+  document.getElementById('resultStat').innerHTML = `<b>${list.length}</b> objetos encontrados`;
+  const container = document.getElementById('results');
+  container.innerHTML = '';
+
+  if(!list.length){
+    container.innerHTML = '<div class="empty">No hay objetos con estos filtros.</div>';
+    return;
+  }
+
+  list.forEach(d=>{
+    const photoList = getPhotoList(d);
+    const thumbId = photoList[0] || '';
+    const count = photoList.length;
+
+    const el = document.createElement('div');
+    el.className = 'obj';
+    el.innerHTML = `
+      <div class="obj-head">
+        <div class="obj-thumb" style="background-image:url('${thumbId ? driveThumbUrl(thumbId) : ''}')"></div>
+        <div class="obj-info">
+          <div class="obj-code">${codeFor(d)} <span class="badge">${d[FIELD.type]||''}</span></div>
+          <div class="obj-title">${(d[FIELD.title]||'Sin título').trim()}</div>
+          <div class="obj-meta">${d[FIELD.zone]||''} · ${d[FIELD.currency]||''} ${d[FIELD.price]??''} · ${count} foto${count===1?'':'s'}</div>
+        </div>
+      </div>
+      <div class="obj-actions">
+        <button class="btn btn-primary">Descargar fotos</button>
+        <button class="btn btn-ghost toggle-links">Ver enlaces (${count})</button>
+        <button class="btn btn-ghost toggle-raw">Ver datos</button>
+        <span class="progress-pill"></span>
+      </div>
+      <div class="links-list" style="display:none;padding:0 12px 12px;"></div>
+      <div class="raw-data" style="display:none;padding:8px 12px 12px;background:#f0f2f5;font-family:monospace;font-size:11px;word-break:break-all;white-space:pre-wrap;border-top:1px solid var(--line);"></div>
+    `;
+    const linksList = el.querySelector('.links-list');
+    photoList.slice(0,10).forEach((id,i)=>{
+      const link = document.createElement('a');
+      link.href = driveDownloadUrl(id);
+      link.target = '_blank';
+      link.rel = 'noopener';
+      link.textContent = i === 0 ? `Foto 1 (Portada)` : `Foto ${i+1}`;
+      link.style.cssText = `display:inline-block;margin:3px 6px 3px 0;padding:6px 10px;background:${i===0?'#0a2f5c':'#eef3fa'};color:${i===0?'#fff':'#0a2f5c'};border-radius:6px;font-size:12px;text-decoration:none;font-weight:${i===0?'bold':'normal'};`;
+      linksList.appendChild(link);
+    });
+    const rawBox = el.querySelector('.raw-data');
+    rawBox.textContent = JSON.stringify(d, null, 2);
+
+    el.querySelector('.toggle-links').addEventListener('click', ()=>{
+      linksList.style.display = linksList.style.display === 'none' ? 'block' : 'none';
+    });
+    el.querySelector('.toggle-raw').addEventListener('click', ()=>{
+      rawBox.style.display = rawBox.style.display === 'none' ? 'block' : 'none';
+    });
+    el.querySelector('.btn-primary').addEventListener('click', (e)=> downloadObject(d, e.target));
+    container.appendChild(el);
+  });
+}
+
+async function downloadAllFiltered(){
+  const list = currentFiltered();
+  if(!list.length) return;
+  if(!confirm(`Vas a descargar fotos de ${list.length} objetos (hasta 10 c/u). Puede tardar y tu navegador pedirá permitir pop-ups. ¿Continuar?`)) return;
+  const buttons = document.querySelectorAll('.obj .btn-primary');
+  for(const btn of buttons){
+    await downloadObject(ROWS.find(d => codeFor(d) === btn.closest('.obj').querySelector('.obj-code').textContent.split(' ')[0]), btn);
+    await new Promise(res => setTimeout(res, 400));
+  }
+}
+
+document.getElementById('pasteInput').addEventListener('input', render);
+document.getElementById('clearPasteBtn').addEventListener('click', ()=>{
+  document.getElementById('pasteInput').value = '';
+  render();
+});
+
+// El área de texto inicia completamente vacía por defecto
+document.getElementById('pasteInput').value = '';
+
+document.getElementById('searchInput').addEventListener('input', render);
+document.getElementById('activeFilter').addEventListener('change', render);
+document.getElementById('opFilter').addEventListener('change', render);
+document.getElementById('typeFilter').addEventListener('change', render);
+document.getElementById('zoneFilter').addEventListener('change', render);
+document.getElementById('dayFilter').addEventListener('change', render);
+document.getElementById('statusFilter').addEventListener('change', render);
+document.getElementById('agentFilter').addEventListener('change', render);
+document.getElementById('downloadAllBtn').addEventListener('click', downloadAllFiltered);
+
+const drop = document.getElementById('drop');
+const fileInput = document.getElementById('fileInput');
+drop.addEventListener('click', ()=> fileInput.click());
+fileInput.addEventListener('change', (e)=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ev => loadData(ev.target.result);
+  reader.readAsText(f);
+});
+['dragover','dragleave','drop'].forEach(evt=>{
+  drop.addEventListener(evt, e=>{
+    e.preventDefault();
+    drop.classList.toggle('dragover', evt==='dragover');
+  });
+});
+drop.addEventListener('drop', e=>{
+  const f = e.dataTransfer.files[0];
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ev => loadData(ev.target.result);
+  reader.readAsText(f);
+});
+</script>
+
+</body>
+</html>
