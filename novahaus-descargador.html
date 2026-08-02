@@ -248,9 +248,12 @@
 
   <div class="card" id="filtersCard" style="display:none">
     <div style="background:#eef3fa;border:1px solid #b7c6de;border-radius:8px;padding:12px;margin-bottom:12px;">
-      <div style="font-size:13.5px;font-weight:700;color:var(--navy);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-size:13.5px;font-weight:700;color:var(--navy);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
         <span>📋 Pegar lista de publicaciones (App / WhatsApp)</span>
-        <button id="clearPasteBtn" style="font-size:11px;padding:3px 8px;background:#fff;border:1px solid var(--line);border-radius:4px;cursor:pointer;">Limpiar texto</button>
+        <div style="display:flex;gap:6px;">
+          <button id="pasteClipboardBtn" style="font-size:12px;font-weight:600;padding:4px 10px;background:var(--navy);color:#fff;border:none;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">📋 Pegar</button>
+          <button id="clearPasteBtn" style="font-size:12px;padding:4px 8px;background:#fff;border:1px solid var(--line);border-radius:6px;cursor:pointer;color:var(--navy);">Limpiar texto</button>
+        </div>
       </div>
       <textarea id="pasteInput" placeholder="Pega aquí el texto copiado de tu app o lista con códigos (ej. VEN648, ALQ779, PROF73)..." style="width:100%;height:110px;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit;outline:none;resize:vertical;"></textarea>
       <div id="pasteStat" style="font-size:12px;color:var(--navy);font-weight:600;margin-top:4px;"></div>
@@ -579,8 +582,9 @@ function currentFiltered(){
       const found = ROWS.find(d => {
         if(codeFor(d) === c) return true;
         if(String(d[FIELD.code]) === codeNum && (PREFIX[d[FIELD.op]] === prefix || !d[FIELD.op])) return true;
-        const rowStr = JSON.stringify(d).toUpperCase();
-        if(rowStr.includes(c)) return true;
+        const desc = String(d['vDBia'] || '');
+        const title = String(d[FIELD.title] || '');
+        if(new RegExp(`\\b#?${c}\\b`, 'i').test(desc) || new RegExp(`\\b#?${c}\\b`, 'i').test(title)) return true;
         return false;
       });
 
@@ -592,8 +596,9 @@ function currentFiltered(){
     });
 
     if(pasteStat){
-      if(missingCodes.length > 0){
-        pasteStat.innerHTML = `✅ <b>${pastedCodes.length}</b> códigos detectados (<b>${matchedRows.length}</b> encontrados · <span style="color:#c0392b;">⚠️ No está en tu data.json: ${missingCodes.join(', ')}</span>)`;
+      if(missingCodes.length > 0 || matchedRows.length < pastedCodes.length){
+        const missingList = missingCodes.length > 0 ? missingCodes.join(', ') : 'Código duplicado o sin coincidencia directa';
+        pasteStat.innerHTML = `📋 <b>${pastedCodes.length}</b> códigos detectados (<b>${matchedRows.length}</b> encontrados) · <span style="color:#d9534f;font-weight:700;background:#fdf2f2;padding:2px 6px;border-radius:4px;border:1px solid #f5c6cb;">⚠️ No está en tu data.json: ${missingList}</span>`;
       } else {
         pasteStat.innerHTML = `✅ <b>${pastedCodes.length}</b> códigos detectados y encontrados correctamente.`;
       }
@@ -750,6 +755,22 @@ async function downloadAllFiltered(){
 }
 
 document.getElementById('pasteInput').addEventListener('input', render);
+document.getElementById('pasteClipboardBtn').addEventListener('click', async ()=>{
+  try {
+    const text = await navigator.clipboard.readText();
+    if(text){
+      document.getElementById('pasteInput').value = text;
+      render();
+    } else {
+      alert('El portapapeles está vacío.');
+    }
+  } catch(err) {
+    const textarea = document.getElementById('pasteInput');
+    textarea.focus();
+    alert('Por favor mantén presionado el cuadro de texto para pegar.');
+  }
+});
+
 document.getElementById('clearPasteBtn').addEventListener('click', ()=>{
   document.getElementById('pasteInput').value = '';
   render();
