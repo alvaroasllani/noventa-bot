@@ -44,7 +44,8 @@ const FIELD = {
   status: 'TieEY',     // estado (ej. "Abierta")
   group: 'UZGXo',      // grupo del Planificador (1-5, checkboxes en la app)
   active: '34Af3',     // publicado / activo ("si" vs "no")
-  agent: 'PJe5x'       // Asesor / Supervisor responsable
+  agent: 'PJe5x',      // Asesor / Supervisor responsable
+  catalog: 'vDBia'     // Texto catálogo de la propiedad
 };
 
 const PREFIX = {
@@ -429,10 +430,38 @@ async function downloadDirectPhoto(id, filename) {
   }
 }
 
+async function copyToClipboard(text) {
+  if (!text) return false;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (e) {}
+
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  } catch (e) {
+    return false;
+  }
+}
+
 async function downloadObject(d, btn) {
+  const catalogText = d[FIELD.catalog] || d['vDBia'] || '';
+  const textCopied = await copyToClipboard(catalogText);
+
   const list = getPhotoList(d).slice(0, 10);
   if (!list.length) {
-    alert('Este objeto no tiene fotos detectadas.');
+    alert('Este objeto no tiene fotos detectadas.' + (textCopied ? ' (Texto catálogo copiado al portapapeles)' : ''));
     return;
   }
   const code = codeFor(d);
@@ -451,7 +480,8 @@ async function downloadObject(d, btn) {
 
     if (CANCEL_DOWNLOADING_ALL) break;
 
-    pill.textContent = `Descargando ${i + 1}/${list.length}...`;
+    const copyNotice = textCopied ? '📋 Catálogo copiado · ' : '';
+    pill.textContent = `${copyNotice}Descargando ${i + 1}/${list.length}...`;
     const numStr = String(i + 1).padStart(2, '0');
     const filename = i === 0 ? `${code}_01_Portada.jpg` : `${code}_${numStr}_Foto.jpg`;
     await downloadDirectPhoto(list[i], filename);
@@ -461,16 +491,20 @@ async function downloadObject(d, btn) {
   if (CANCEL_DOWNLOADING_ALL) {
     pill.textContent = `❌ Cancelado`;
   } else {
-    pill.textContent = `✅ Listo (${list.length})`;
+    const copyNotice = textCopied ? '📋 Catálogo copiado · ' : '';
+    pill.textContent = `${copyNotice}✅ Listo (${list.length})`;
   }
   btn.disabled = false;
   setTimeout(() => { pill.classList.remove('show'); }, 4000);
 }
 
 async function downloadObjectZip(d, btn) {
+  const catalogText = d[FIELD.catalog] || d['vDBia'] || '';
+  const textCopied = await copyToClipboard(catalogText);
+
   const list = getPhotoList(d).slice(0, 10);
   if (!list.length) {
-    alert('Este objeto no tiene fotos detectadas.');
+    alert('Este objeto no tiene fotos detectadas.' + (textCopied ? ' (Texto catálogo copiado al portapapeles)' : ''));
     return;
   }
   if (typeof JSZip === 'undefined') {
@@ -481,14 +515,15 @@ async function downloadObjectZip(d, btn) {
   btn.disabled = true;
   const pill = btn.parentElement.querySelector('.progress-pill');
   pill.classList.add('show');
-  pill.textContent = 'Creando ZIP...';
+  const copyNotice = textCopied ? '📋 Catálogo copiado · ' : '';
+  pill.textContent = `${copyNotice}Creando ZIP...`;
 
   try {
     const zip = new JSZip();
     const folder = zip.folder(code);
 
     for (let i = 0; i < list.length; i++) {
-      pill.textContent = `Empaquetando ${i + 1}/${list.length}...`;
+      pill.textContent = `${copyNotice}Empaquetando ${i + 1}/${list.length}...`;
       const res = await fetch(`https://lh3.googleusercontent.com/d/${list[i]}`);
       const blob = await res.blob();
       const numStr = String(i + 1).padStart(2, '0');
@@ -496,7 +531,7 @@ async function downloadObjectZip(d, btn) {
       folder.file(filename, blob);
     }
 
-    pill.textContent = 'Guardando ZIP...';
+    pill.textContent = `${copyNotice}Guardando ZIP...`;
     const zipBlob = await zip.generateAsync({ type: 'blob' });
     const blobUrl = URL.createObjectURL(zipBlob);
     const a = document.createElement('a');
@@ -506,7 +541,7 @@ async function downloadObjectZip(d, btn) {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-    pill.textContent = `✅ ZIP guardado (${list.length})`;
+    pill.textContent = `${copyNotice}✅ ZIP guardado (${list.length})`;
   } catch (err) {
     alert('No se pudo empaquetar el ZIP. Descargando fotos individuales...');
     await downloadObject(d, btn);
@@ -558,6 +593,13 @@ function render() {
           </svg>
           Descargar ZIP
         </button>
+        <button class="btn btn-ghost btn-copy-catalog">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+          Copiar catálogo
+        </button>
         <button class="btn btn-ghost toggle-links">Ver enlaces (${count})</button>
         <span class="progress-pill"></span>
       </div>
@@ -584,6 +626,22 @@ function render() {
     });
     el.querySelector('.btn-dl-jpg').addEventListener('click', (e) => downloadObject(d, e.target));
     el.querySelector('.btn-dl-zip').addEventListener('click', (e) => downloadObjectZip(d, e.target));
+    el.querySelector('.btn-copy-catalog').addEventListener('click', async () => {
+      const catalogText = d[FIELD.catalog] || d['vDBia'] || '';
+      const pill = el.querySelector('.progress-pill');
+      if (!catalogText) {
+        alert('Este inmueble no tiene texto catálogo disponible.');
+        return;
+      }
+      const ok = await copyToClipboard(catalogText);
+      pill.classList.add('show');
+      if (ok) {
+        pill.textContent = '📋 Catálogo copiado al portapapeles';
+      } else {
+        pill.textContent = '⚠️ Error al copiar al portapapeles';
+      }
+      setTimeout(() => { pill.classList.remove('show'); }, 3500);
+    });
     container.appendChild(el);
   });
 }

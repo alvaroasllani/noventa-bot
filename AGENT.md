@@ -94,6 +94,10 @@ PROF / LOCAL       → PROF
 ### 3. Reliable downloads
 - Visible link pills (`Foto 1 (Portada)`, `Foto 2`, etc.) allow 100% reliable 1-tap downloads in mobile browsers without triggering pop-up blocker restrictions.
 
+### 4. Automatic Catalog Text Copying (RESOLVED)
+- When clicking "Descargar fotos (.jpg)" or "Descargar ZIP", the full property description text from `vDBia` (the catalog text) is automatically copied to the clipboard via `copyToClipboard()`.
+- An explicit "Copiar catálogo" button is also provided on each property card to copy the text manually at any time with visual feedback on the progress pill (`📋 Catálogo copiado`).
+
 ## File locations
 
 - `c:\Users\ALVARO\Documents\Proyectos\NovaDownload\index.html` (and `novahaus-descargador.html`) — main tool entry point (single self-contained HTML file)
