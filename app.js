@@ -174,6 +174,74 @@ async function clearStoredData() {
   } catch (e) { return false; }
 }
 
+function isExAgent(name) {
+  if (!name) return false;
+  return /^ex([\s\-_].*|$)/i.test(name.trim());
+}
+
+function updateAgentDropdown() {
+  const sel = document.getElementById('agentFilter');
+  if (!sel) return;
+  const onlyActive = document.getElementById('onlyActiveAgentsCheck')?.checked ?? true;
+  const curValue = sel.value;
+
+  const agentMap = new Map();
+  ROWS.forEach(d => {
+    const agList = [d['Lt6BS'], d[FIELD.agent], d['Pverj'], d['bF4oQ']];
+    const isActive = String(d[FIELD.active] || '').toLowerCase() === 'si';
+    const isOpen = d[FIELD.status] !== 'Cerrada';
+
+    const seenInRow = new Set();
+    agList.forEach(rawName => {
+      if (!rawName) return;
+      const name = rawName.trim();
+      if (!name || seenInRow.has(name)) return;
+      seenInRow.add(name);
+
+      if (!agentMap.has(name)) {
+        agentMap.set(name, { total: 0, activeOpen: 0, isEx: isExAgent(name) });
+      }
+      const info = agentMap.get(name);
+      info.total++;
+      if (isActive && isOpen) info.activeOpen++;
+    });
+  });
+
+  const sortedAgents = Array.from(agentMap.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'));
+
+  let filtered = sortedAgents;
+  if (onlyActive) {
+    filtered = sortedAgents.filter(([name, info]) => info.activeOpen > 0 && !info.isEx);
+  }
+
+  const placeholder = onlyActive
+    ? `Asesor (${filtered.length} activos)`
+    : `Asesor (todos - ${sortedAgents.length})`;
+
+  sel.innerHTML = `<option value="">${placeholder}</option>`;
+
+  filtered.forEach(([name, info]) => {
+    const o = document.createElement('option');
+    o.value = name;
+    if (onlyActive) {
+      o.textContent = `${name} (${info.activeOpen})`;
+    } else {
+      let tag = '';
+      if (info.isEx) tag = ' (EX-Asesor)';
+      else if (info.activeOpen === 0) tag = ' (0 - inactivo)';
+      else tag = ` (${info.activeOpen})`;
+      o.textContent = `${name}${tag}`;
+    }
+    sel.appendChild(o);
+  });
+
+  if (filtered.some(([name]) => name === curValue)) {
+    sel.value = curValue;
+  } else {
+    sel.value = '';
+  }
+}
+
 function loadData(text, isUserUpload = false) {
   let json;
   try {
@@ -189,22 +257,20 @@ function loadData(text, isUserUpload = false) {
   document.getElementById('toolbar').style.display = 'flex';
   document.getElementById('hint').style.display = 'block';
 
-  const ops = new Set(), types = new Set(), zones = new Set(), days = new Set(), statuses = new Set(), agents = new Set();
+  const ops = new Set(), types = new Set(), zones = new Set(), days = new Set(), statuses = new Set();
   ROWS.forEach(d => {
     if (d[FIELD.op]) ops.add(d[FIELD.op]);
     if (d[FIELD.type]) types.add(d[FIELD.type]);
     if (d[FIELD.zone]) zones.add(d[FIELD.zone]);
     if (d[FIELD.day]) days.add(d[FIELD.day]);
     if (d[FIELD.status]) statuses.add(d[FIELD.status]);
-    const ag = d[FIELD.agent] || d['Lt6BS'];
-    if (ag) agents.add(ag);
   });
   populateSelect(document.getElementById('opFilter'), ops, 'Operación (todas)');
   populateSelect(document.getElementById('typeFilter'), types, 'Tipo (todos)');
   populateSelect(document.getElementById('zoneFilter'), zones, 'Zona (todas)');
   populateSelect(document.getElementById('dayFilter'), days, 'Día de publicación (todos)');
   populateSelect(document.getElementById('statusFilter'), statuses, 'Estado (todos)');
-  populateSelect(document.getElementById('agentFilter'), agents, 'Asesor (todos)');
+  updateAgentDropdown();
 
   const groupWrap = document.getElementById('groupChecks');
   groupWrap.innerHTML = '';
@@ -363,9 +429,12 @@ function currentFiltered() {
   const agent = document.getElementById('agentFilter')?.value || '';
   const checkedGroups = [...document.querySelectorAll('#groupChecks input:checked')].map(i => String(i.value));
 
+  const onlyActiveAgents = document.getElementById('onlyActiveAgentsCheck')?.checked ?? true;
+
   return ROWS.filter(d => {
     const code = codeFor(d).toLowerCase();
     const title = (d[FIELD.title] || '').toLowerCase();
+    const rowAgents = [d['Lt6BS'], d[FIELD.agent], d['Pverj'], d['bF4oQ']].map(a => (a || '').trim()).filter(Boolean);
 
     if (search) {
       if (!code.includes(search) && !title.includes(search)) return false;
@@ -374,6 +443,9 @@ function currentFiltered() {
 
     if (active === 'si' && d[FIELD.active] && String(d[FIELD.active]).toLowerCase() === 'no') return false;
     if (active === 'no' && String(d[FIELD.active]).toLowerCase() !== 'no') return false;
+
+    // Exclude properties of EX agents when only active agents/publications are desired
+    if (onlyActiveAgents && rowAgents.some(a => isExAgent(a))) return false;
 
     if (op && d[FIELD.op] !== op) return false;
     if (type && d[FIELD.type] !== type) return false;
@@ -384,7 +456,7 @@ function currentFiltered() {
     } else {
       if (d[FIELD.status] === 'Cerrada') return false;
     }
-    if (agent && (d[FIELD.agent] || d['Lt6BS']) !== agent) return false;
+    if (agent && !rowAgents.includes(agent)) return false;
 
     if (checkedGroups.length) {
       const val = d[FIELD.group];
@@ -765,6 +837,10 @@ document.getElementById('zoneFilter').addEventListener('change', render);
 document.getElementById('dayFilter').addEventListener('change', render);
 document.getElementById('statusFilter').addEventListener('change', render);
 document.getElementById('agentFilter').addEventListener('change', render);
+document.getElementById('onlyActiveAgentsCheck')?.addEventListener('change', () => {
+  updateAgentDropdown();
+  render();
+});
 document.getElementById('downloadAllBtn').addEventListener('click', downloadAllFiltered);
 
 const drop = document.getElementById('drop');

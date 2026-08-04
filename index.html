@@ -144,9 +144,15 @@
             </select>
           </div>
           <div class="row" style="grid-template-columns: 1fr;">
-            <select id="agentFilter">
-              <option value="">Asesor (todos)</option>
-            </select>
+            <div>
+              <select id="agentFilter">
+                <option value="">Asesor (todos)</option>
+              </select>
+              <label style="font-size:12px; display:flex; align-items:center; gap:6px; margin-top:6px; color:var(--muted); cursor:pointer; user-select:none;">
+                <input type="checkbox" id="onlyActiveAgentsCheck" checked>
+                <span>Mostrar solo asesores activos (con propiedades vigentes)</span>
+              </label>
+            </div>
           </div>
           <div>
             <div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:500;">Grupo Planificador (igual que el filtro "Filtrar" de la app)</div>
