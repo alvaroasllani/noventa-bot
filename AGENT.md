@@ -40,7 +40,7 @@ The tool works end-to-end for both:
 
 ## Data schema (`data.json` / the `.jzon` file)
 
-Shape: `{"rows": [{"id": "...", "data": {...}}, ...]}`, ~1986 rows in sample, ~6.9MB.
+Shape: `{"rows": [{"id": "...", "data": {...}}, ...]}`, ~1994 rows in sample, ~9MB.
 
 Obfuscated 5-character keys (Glide column IDs):
 
@@ -60,12 +60,20 @@ lak0f  → numeric code, combine with prefix derived from mERYr        [CONFIRME
 0C9DE  → cover photo, Drive "view" URL (Photo #1)                    [CONFIRMED]
 7fYNu, P0E5J, RiqQn → carousel photos (Glide creates separate fields [CONFIRMED]
          or comma-separated lists across columns)
-34Af3  → active / published status ("si" | "no")                      [CONFIRMED]
-vDBia  → long description text, contains hashtag with code (#ALQ809) [CONFIRMED]
+34Af3  → published in app ("si" | "no"). THIS is the field that       [CONFIRMED]
+         determines visibility in Glide. If 34Af3="si", the property
+         appears in the app regardless of TieEY or agent status.
+abzcW  → Facebook post text for the property                         [CONFIRMED]
+vDBia  → long description / catalog text, has hashtag (#ALQ809)      [CONFIRMED]
 a6X7r  → scheduled publish day ("Domingo", "Martes"...)              [CONFIRMED]
-TieEY  → status ("Abierta" vs "Cerrada")                             [CONFIRMED]
+TieEY  → internal status ("Abierta" | "Cerrada" | undefined).        [CONFIRMED]
+         ⚠️ NOT the same as 34Af3. A property can be 34Af3="si"
+         (visible in app) AND TieEY="Cerrada" at the same time.
+         The photo downloader uses TieEY for its own filters, but
+         generar_sheet.js must NOT filter by TieEY.
 UZGXo  → integer 1-5, Planificador filter group checkbox           [CONFIRMED]
 PJe5x / Lt6BS → Agent / Supervisor name                              [CONFIRMED]
+Pverj / bF4oQ → additional agent fields (3rd/4th agent)              [CONFIRMED]
 2Smy9  → full Drive folder URL for the object (backup/unused)        [CONFIRMED]
 ```
 
@@ -98,11 +106,28 @@ PROF / LOCAL       → PROF
 - When clicking "Descargar fotos (.jpg)" or "Descargar ZIP", the full property description text from `vDBia` (the catalog text) is automatically copied to the clipboard via `copyToClipboard()`.
 - An explicit "Copiar catálogo" button is also provided on each property card to copy the text manually at any time with visual feedback on the progress pill (`📋 Catálogo copiado`).
 
+## Sheet generator (`generar_sheet.js`)
+
+Node.js script that reads `data.json` and produces `novahaus_sheet.xlsx` with
+one tab per operation type, for Facebook publishing workflow.
+
+- **Filter:** Only `34Af3 === "si"` (published in Glide). Does NOT filter by
+  `TieEY` or ex-agent — those filters are for the photo downloader only.
+- **Tabs (fixed order):** Ventas, Alquiler, Anticrético, Entrega Inmediata,
+  Preventa, Prof - Local.
+- **Columns:** Código, Texto Facebook, URLs Imagenes, Publicado.
+- **Run:** `node generar_sheet.js` — overwrites `novahaus_sheet.xlsx` and
+  `resumen.txt`.
+- **Depends on:** `xlsx` npm package.
+
 ## File locations
 
-- `c:\Users\ALVARO\Documents\Proyectos\NovaDownload\index.html` (and `novahaus-descargador.html`) — main tool entry point (single self-contained HTML file)
-- `c:\Users\ALVARO\Documents\Proyectos\NovaDownload\data.json` — local dataset sample
-- `c:\Users\ALVARO\Documents\Proyectos\NovaDownload\AGENT.md` — project context & documentation
+- `index.html` / `app.js` / `styles.css` — photo downloader tool (web app)
+- `data.json` — local dataset (copy of Glide's `.jzon`)
+- `generar_sheet.js` — generates `novahaus_sheet.xlsx` for Facebook publishing
+- `novahaus_sheet.xlsx` — generated output, 6 tabs, all published properties
+- `resumen.txt` — summary report from last sheet generation
+- `AGENT.md` — project context & documentation
 
 ## Conventions / working style
 
