@@ -45,7 +45,8 @@ const FIELD = {
   group: 'UZGXo',      // grupo del Planificador (1-5, checkboxes en la app)
   active: '34Af3',     // publicado / activo ("si" vs "no")
   agent: 'PJe5x',      // Asesor / Supervisor responsable
-  catalog: 'vDBia'     // Texto catálogo de la propiedad
+  catalog: 'vDBia',    // Texto catálogo de la propiedad
+  facebook: 'abzcW'    // Texto Facebook de la propiedad
 };
 
 const PREFIX = {
@@ -659,11 +660,11 @@ function render() {
           </svg>
           Descargar fotos (.jpg)
         </button>
-        <button class="btn btn-ghost btn-dl-zip">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 16V8a2 2 0 0 1-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+        <button class="btn btn-ghost btn-copy-facebook">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
           </svg>
-          Descargar ZIP
+          Copiar Facebook
         </button>
         <button class="btn btn-ghost btn-copy-catalog">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -671,6 +672,12 @@ function render() {
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
           </svg>
           Copiar catálogo
+        </button>
+        <button class="btn btn-ghost btn-dl-zip">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 16V8a2 2 0 0 1-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+          </svg>
+          Descargar ZIP
         </button>
         <button class="btn btn-ghost toggle-links">Ver enlaces (${count})</button>
         <span class="progress-pill"></span>
@@ -709,6 +716,22 @@ function render() {
       pill.classList.add('show');
       if (ok) {
         pill.textContent = '📋 Catálogo copiado al portapapeles';
+      } else {
+        pill.textContent = '⚠️ Error al copiar al portapapeles';
+      }
+      setTimeout(() => { pill.classList.remove('show'); }, 3500);
+    });
+    el.querySelector('.btn-copy-facebook').addEventListener('click', async () => {
+      const fbText = d[FIELD.facebook] || d['abzcW'] || d[FIELD.catalog] || d['vDBia'] || '';
+      const pill = el.querySelector('.progress-pill');
+      if (!fbText) {
+        alert('Este inmueble no tiene texto de Facebook disponible.');
+        return;
+      }
+      const ok = await copyToClipboard(fbText);
+      pill.classList.add('show');
+      if (ok) {
+        pill.textContent = '📘 Texto Facebook copiado al portapapeles';
       } else {
         pill.textContent = '⚠️ Error al copiar al portapapeles';
       }
