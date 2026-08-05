@@ -633,20 +633,26 @@ async function downloadObject(d, btn) {
   setTimeout(() => { pill.classList.remove('show'); }, 4000);
 }
 
-async function downloadObjectZip(d, btn) {
-  const catalogText = d[FIELD.catalog] || d['vDBia'] || '';
-  const textCopied = await copyToClipboard(catalogText);
+let PAGE_SIZE = 10;
+let VISIBLE_COUNT = 10;
 
-  const list = getPhotoList(d).slice(0, 10);
-  if (!list.length) {
-    alert('Este objeto no tiene fotos detectadas.' + (textCopied ? ' (Texto catálogo copiado al portapapeles)' : ''));
-    return;
+function render(resetPagination = false) {
+  if (resetPagination === true) {
+    VISIBLE_COUNT = PAGE_SIZE;
   }
-}
 
-function render() {
   const list = currentFiltered();
-  document.getElementById('resultStat').innerHTML = `<b>${list.length}</b> objetos encontrados`;
+  const visibleList = list.slice(0, VISIBLE_COUNT);
+
+  const statEl = document.getElementById('resultStat');
+  if (list.length === 0) {
+    statEl.innerHTML = `<b>0</b> objetos encontrados`;
+  } else if (list.length <= VISIBLE_COUNT) {
+    statEl.innerHTML = `<b>${list.length}</b> objetos encontrados`;
+  } else {
+    statEl.innerHTML = `Mostrando <b>${visibleList.length}</b> de <b>${list.length}</b> objetos encontrados`;
+  }
+
   const container = document.getElementById('results');
   container.innerHTML = '';
 
@@ -655,7 +661,7 @@ function render() {
     return;
   }
 
-  list.forEach(d => {
+  visibleList.forEach(d => {
     const photoList = getPhotoList(d);
     const thumbId = photoList[0] || '';
     const count = photoList.length;
@@ -750,6 +756,33 @@ function render() {
       }
       setTimeout(() => { pill.classList.remove('show'); }, 3500);
     });
+
+    container.appendChild(el);
+  });
+
+  if (list.length > VISIBLE_COUNT) {
+    const nextBatch = Math.min(PAGE_SIZE, list.length - VISIBLE_COUNT);
+    const btnWrap = document.createElement('div');
+    btnWrap.style.cssText = 'text-align:center;margin:20px 0 10px;grid-column:1/-1;';
+    btnWrap.innerHTML = `
+      <button id="loadMoreBtn" class="btn btn-primary" style="padding:10px 24px;font-size:13.5px;font-weight:600;display:inline-flex;align-items:center;gap:8px;border-radius:8px;box-shadow:0 4px 12px rgba(37,99,235,0.25);cursor:pointer;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <polyline points="19 12 12 19 5 12"/>
+        </svg>
+        Mostrar más (${nextBatch})
+      </button>
+    `;
+    btnWrap.querySelector('#loadMoreBtn').addEventListener('click', () => {
+      VISIBLE_COUNT += PAGE_SIZE;
+      render(false);
+    });
+    container.appendChild(btnWrap);
+  }
+}s';
+      }
+      setTimeout(() => { pill.classList.remove('show'); }, 3500);
+    });
     container.appendChild(el);
   });
 }
@@ -841,13 +874,13 @@ document.getElementById('cancelDownloadBtn').addEventListener('click', () => {
   }
 });
 
-document.getElementById('pasteInput').addEventListener('input', render);
+document.getElementById('pasteInput').addEventListener('input', () => render(true));
 document.getElementById('pasteClipboardBtn').addEventListener('click', async () => {
   try {
     const text = await navigator.clipboard.readText();
     if (text) {
       document.getElementById('pasteInput').value = text;
-      render();
+      render(true);
     } else {
       alert('El portapapeles está vacío.');
     }
@@ -860,22 +893,22 @@ document.getElementById('pasteClipboardBtn').addEventListener('click', async () 
 
 document.getElementById('clearPasteBtn').addEventListener('click', () => {
   document.getElementById('pasteInput').value = '';
-  render();
+  render(true);
 });
 
 document.getElementById('pasteInput').value = '';
 
-document.getElementById('searchInput').addEventListener('input', render);
-document.getElementById('activeFilter').addEventListener('change', render);
-document.getElementById('opFilter').addEventListener('change', render);
-document.getElementById('typeFilter').addEventListener('change', render);
-document.getElementById('zoneFilter').addEventListener('change', render);
-document.getElementById('dayFilter').addEventListener('change', render);
-document.getElementById('statusFilter').addEventListener('change', render);
-document.getElementById('agentFilter').addEventListener('change', render);
+document.getElementById('searchInput').addEventListener('input', () => render(true));
+document.getElementById('activeFilter').addEventListener('change', () => render(true));
+document.getElementById('opFilter').addEventListener('change', () => render(true));
+document.getElementById('typeFilter').addEventListener('change', () => render(true));
+document.getElementById('zoneFilter').addEventListener('change', () => render(true));
+document.getElementById('dayFilter').addEventListener('change', () => render(true));
+document.getElementById('statusFilter').addEventListener('change', () => render(true));
+document.getElementById('agentFilter').addEventListener('change', () => render(true));
 document.getElementById('onlyActiveAgentsCheck')?.addEventListener('change', () => {
   updateAgentDropdown();
-  render();
+  render(true);
 });
 document.getElementById('downloadAllBtn').addEventListener('click', downloadAllFiltered);
 
