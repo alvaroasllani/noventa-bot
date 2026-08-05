@@ -779,12 +779,6 @@ function render(resetPagination = false) {
     });
     container.appendChild(btnWrap);
   }
-}s';
-      }
-      setTimeout(() => { pill.classList.remove('show'); }, 3500);
-    });
-    container.appendChild(el);
-  });
 }
 
 async function downloadAllFiltered() {
