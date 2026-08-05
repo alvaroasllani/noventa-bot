@@ -580,48 +580,6 @@ async function downloadObjectZip(d, btn) {
     alert('Este objeto no tiene fotos detectadas.' + (textCopied ? ' (Texto catálogo copiado al portapapeles)' : ''));
     return;
   }
-  if (typeof JSZip === 'undefined') {
-    return downloadObject(d, btn);
-  }
-  const code = codeFor(d);
-
-  btn.disabled = true;
-  const pill = btn.parentElement.querySelector('.progress-pill');
-  pill.classList.add('show');
-  const copyNotice = textCopied ? '📋 Catálogo copiado · ' : '';
-  pill.textContent = `${copyNotice}Creando ZIP...`;
-
-  try {
-    const zip = new JSZip();
-    const folder = zip.folder(code);
-
-    for (let i = 0; i < list.length; i++) {
-      pill.textContent = `${copyNotice}Empaquetando ${i + 1}/${list.length}...`;
-      const res = await fetch(`https://lh3.googleusercontent.com/d/${list[i]}`);
-      const blob = await res.blob();
-      const numStr = String(i + 1).padStart(2, '0');
-      const filename = i === 0 ? `01_Portada_${code}.jpg` : `${numStr}_Foto_${code}.jpg`;
-      folder.file(filename, blob);
-    }
-
-    pill.textContent = `${copyNotice}Guardando ZIP...`;
-    const zipBlob = await zip.generateAsync({ type: 'blob' });
-    const blobUrl = URL.createObjectURL(zipBlob);
-    const a = document.createElement('a');
-    a.href = blobUrl;
-    a.download = `${code}_Fotos.zip`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-    pill.textContent = `${copyNotice}✅ ZIP guardado (${list.length})`;
-  } catch (err) {
-    alert('No se pudo empaquetar el ZIP. Descargando fotos individuales...');
-    await downloadObject(d, btn);
-  } finally {
-    btn.disabled = false;
-    setTimeout(() => { pill.classList.remove('show'); }, 4000);
-  }
 }
 
 function render() {
@@ -673,12 +631,6 @@ function render() {
           </svg>
           Copiar catálogo
         </button>
-        <button class="btn btn-ghost btn-dl-zip">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 16V8a2 2 0 0 1-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-          </svg>
-          Descargar ZIP
-        </button>
         <button class="btn btn-ghost toggle-links">Ver enlaces (${count})</button>
         <span class="progress-pill"></span>
       </div>
@@ -704,7 +656,6 @@ function render() {
       linksList.style.display = linksList.style.display === 'none' ? 'block' : 'none';
     });
     el.querySelector('.btn-dl-jpg').addEventListener('click', (e) => downloadObject(d, e.target));
-    el.querySelector('.btn-dl-zip').addEventListener('click', (e) => downloadObjectZip(d, e.target));
     el.querySelector('.btn-copy-catalog').addEventListener('click', async () => {
       const catalogText = d[FIELD.catalog] || d['vDBia'] || '';
       const pill = el.querySelector('.progress-pill');

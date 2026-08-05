@@ -19,7 +19,7 @@ unsolicited code dumps before he's ready to implement.
 
 The tool works end-to-end for both:
 1. **Pasted List Workflow (Primary):** User pastes text containing titles/codes copied from the app or WhatsApp. Regex extracts valid codes, matches them against `data.json`, and displays photo cards in exact order.
-2. **Manual Filter Workflow:** Collapsible panel supporting filtering by Day, Status, Operation, Property Type, Zone, Active/Published status, Agent (`PJe5x`/`Lt6BS`), and Planificador group checkboxes (`UZGXo` 1-5).
+2. **Manual Filter Workflow (Hidden by default):** Collapsible panel supporting filtering by Day, Status, Operation, Property Type, Zone, Active/Published status, Agent (`PJe5x`/`Lt6BS`), and Planificador group checkboxes (`UZGXo` 1-5). Hidden in UI by default to focus on the pasted list workflow.
 
 ## How the source app works (reverse-engineered, not documented anywhere)
 
@@ -103,7 +103,7 @@ PROF / LOCAL       → PROF
 - Visible link pills (`Foto 1 (Portada)`, `Foto 2`, etc.) allow 100% reliable 1-tap downloads in mobile browsers without triggering pop-up blocker restrictions.
 
 ### 4. Automatic Catalog Text Copying (RESOLVED)
-- When clicking "Descargar fotos (.jpg)" or "Descargar ZIP", the full property description text from `vDBia` (the catalog text) is automatically copied to the clipboard via `copyToClipboard()`.
+- When clicking "Descargar fotos (.jpg)", the full property description text from `vDBia` (the catalog text) is automatically copied to the clipboard via `copyToClipboard()`.
 - An explicit "Copiar catálogo" button is also provided on each property card to copy the text manually at any time with visual feedback on the progress pill (`📋 Catálogo copiado`).
 
 ## Sheet generator (`generar_sheet.js`)
