@@ -361,6 +361,9 @@ async function handleUserFileUpload(file) {
           const imgs = String(r['TempImg'] || '').split(',').map(s => s.trim()).filter(Boolean);
           const cover = imgs[0] || '';
           const gallery = imgs.slice(1).join(', ');
+          const cargo = String(r['Cargo'] || '').trim();
+          const isEx = /^ex/i.test(cargo);
+          const isAvailable = String(r['DISPONIBLE'] || '').trim().toLowerCase() === 'si' && !isEx;
 
           return {
             data: {
@@ -372,9 +375,10 @@ async function handleUserFileUpload(file) {
               lak0f: num,
               '0C9DE': cover,
               '7fYNu': gallery,
-              '34Af3': String(r['DISPONIBLE'] || '').trim().toLowerCase() === 'si' ? 'si' : 'no',
+              '34Af3': isAvailable ? 'si' : 'no',
               vDBia: r['Txt Catalogo'] || r['Txt Facebook'] || '',
-              abzcW: r['Txt Facebook'] || r['Txt Catalogo'] || ''
+              abzcW: r['Txt Facebook'] || r['Txt Catalogo'] || '',
+              PJe5x: cargo ? (isEx ? `Ex (${cargo})` : cargo) : ''
             }
           };
         });
