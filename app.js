@@ -621,8 +621,8 @@ async function downloadObject(d, btnTarget) {
   const pill = btn.parentElement.querySelector('.progress-pill');
   pill.classList.add('show');
 
-  // Intentar Web Share API para guardar directamente en Galería de Fotos / enviar a WhatsApp
-  if (canShareFiles()) {
+  // Usar Web Share API ÚNICAMENTE en dispositivos iOS (iPhone / iPad)
+  if (isIOS() && canShareFiles()) {
     try {
       const copyNotice = textCopied ? '📋 Catálogo copiado · ' : '';
       pill.textContent = `${copyNotice}Cargando fotos para guardar/compartir...`;
@@ -646,7 +646,7 @@ async function downloadObject(d, btnTarget) {
       }
 
       if (fileArray.length > 0 && navigator.canShare({ files: fileArray })) {
-        pill.textContent = `📲 Abriendo ventana de compartir del iPhone / celular...`;
+        pill.textContent = `📲 Abriendo ventana de compartir del iPhone...`;
         await navigator.share({
           title: code,
           text: catalogText ? `${code} - ${(d[FIELD.title] || '').trim()}` : code,
@@ -664,7 +664,7 @@ async function downloadObject(d, btnTarget) {
         setTimeout(() => { pill.classList.remove('show'); }, 3000);
         return;
       }
-      console.warn('navigator.share falló, usando descarga por defecto:', shareErr);
+      console.warn('navigator.share falló en iOS, mostrando enlaces:', shareErr);
     }
   }
 
@@ -683,7 +683,7 @@ async function downloadObject(d, btnTarget) {
     return;
   }
 
-  // Descarga secuencial estándar para PC / Escritorio
+  // Descarga secuencial directa original (Android / PC / Mac)
   for (let i = 0; i < list.length; i++) {
     if (CANCEL_DOWNLOADING_ALL) break;
 
@@ -740,7 +740,7 @@ function render(resetPagination = false) {
     return;
   }
 
-  const useShare = canShareFiles() || isIOS();
+  const useShare = isIOS();
 
   visibleList.forEach(d => {
     const photoList = getPhotoList(d);
