@@ -297,7 +297,7 @@ function loadData(text, isUserUpload = false) {
 async function initData() {
   const statText = document.getElementById('fileStatText');
   const resetBtn = document.getElementById('resetDataBtn');
-  statText.innerHTML = '⌛ Cargando data.json...';
+  statText.innerHTML = '⌛ Cargando datos...';
 
   const custom = await getStoredData();
   if (custom && custom.text) {
@@ -305,7 +305,7 @@ async function initData() {
     if (ok) {
       const d = new Date(custom.date);
       const fDate = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      statText.innerHTML = `✅ <b>data.json personalizado cargado</b> (${ROWS.length} objetos · guardado el ${fDate})`;
+      statText.innerHTML = `✅ <b>Propiedades.xlsx personalizado cargado</b> (${ROWS.length} objetos · ${fDate})`;
       resetBtn.style.display = 'inline-flex';
       return;
     }
@@ -316,7 +316,7 @@ async function initData() {
 async function fetchDefaultData() {
   const statText = document.getElementById('fileStatText');
   const resetBtn = document.getElementById('resetDataBtn');
-  statText.innerHTML = '⌛ Cargando data.json por defecto...';
+  statText.innerHTML = '⌛ Cargando datos base...';
   resetBtn.style.display = 'none';
 
   try {
@@ -325,17 +325,79 @@ async function fetchDefaultData() {
     const text = await res.text();
     const ok = loadData(text, false);
     if (ok) {
-      statText.innerHTML = `✅ <b>data.json por defecto cargado</b> (${ROWS.length} objetos)`;
+      statText.innerHTML = `✅ <b>Datos de Propiedades cargados</b> (${ROWS.length} objetos)`;
     } else {
-      statText.innerHTML = `⚠️ Error al procesar data.json por defecto. Puedes subir uno manualmente abajo.`;
+      statText.innerHTML = `⚠️ Error al procesar datos base. Puedes subir Propiedades.xlsx abajo.`;
     }
   } catch (e) {
-    statText.innerHTML = `⚠️ No se pudo cargar data.json por defecto. Sube uno manualmente abajo.`;
+    statText.innerHTML = `⚠️ No se pudieron cargar los datos base. Sube Propiedades.xlsx abajo.`;
   }
 }
 
 async function handleUserFileUpload(file) {
   if (!file) return;
+  const fileName = file.name.toLowerCase();
+
+  if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+    if (typeof XLSX === 'undefined') {
+      alert('La librería para leer archivos Excel no está disponible.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async ev => {
+      try {
+        const data = new Uint8Array(ev.target.result);
+        const wb = XLSX.read(data, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rawExcel = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+        const PREFIX_OP = { ALQ: 'ALQUILER', VEN: 'VENTA', PREV: 'PREVENTA', ANT: 'ANTICRETICO', ENTR: 'ENTREGA INMEDIATA', PROF: 'PROF / LOCAL' };
+        const jsonRows = rawExcel.map(r => {
+          const code = String(r['Ncodigo'] || '').trim();
+          const m = code.match(/^([A-Z]+)(\d+)$/);
+          const prefix = m ? m[1] : '';
+          const num = m ? parseInt(m[2], 10) : '';
+          const op = PREFIX_OP[prefix] || 'VENTA';
+          const imgs = String(r['TempImg'] || '').split(',').map(s => s.trim()).filter(Boolean);
+          const cover = imgs[0] || '';
+          const gallery = imgs.slice(1).join(', ');
+
+          return {
+            data: {
+              mERYr: op,
+              oHoAu: r['Tipo'] || '',
+              WIoeb: r['Zona'] || '',
+              '5kIsO': r['Propiedad'] || '',
+              GRkSW: r['preciofinal'] || '',
+              lak0f: num,
+              '0C9DE': cover,
+              '7fYNu': gallery,
+              '34Af3': String(r['DISPONIBLE'] || '').trim().toLowerCase() === 'si' ? 'si' : 'no',
+              vDBia: r['Txt Catalogo'] || r['Txt Facebook'] || '',
+              abzcW: r['Txt Facebook'] || r['Txt Catalogo'] || ''
+            }
+          };
+        });
+
+        const jsonStr = JSON.stringify({ rows: jsonRows });
+        const ok = loadData(jsonStr, true);
+        if (ok) {
+          await setStoredData(jsonStr, file.name);
+          const statText = document.getElementById('fileStatText');
+          const resetBtn = document.getElementById('resetDataBtn');
+          const now = new Date();
+          const fDate = now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          statText.innerHTML = `✅ <b>${file.name} subido y guardado en la app</b> (${ROWS.length} objetos · ${fDate})`;
+          resetBtn.style.display = 'inline-flex';
+        }
+      } catch (e) {
+        alert('Error al procesar el archivo Excel: ' + e.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    return;
+  }
+
   const reader = new FileReader();
   reader.onload = async ev => {
     const text = ev.target.result;
@@ -346,7 +408,7 @@ async function handleUserFileUpload(file) {
       const resetBtn = document.getElementById('resetDataBtn');
       const now = new Date();
       const fDate = now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      statText.innerHTML = `✅ <b>Nuevo data.json subido y guardado localmente</b> (${ROWS.length} objetos · ${fDate})`;
+      statText.innerHTML = `✅ <b>Nuevo archivo subido y guardado localmente</b> (${ROWS.length} objetos · ${fDate})`;
       resetBtn.style.display = 'inline-flex';
     }
   };

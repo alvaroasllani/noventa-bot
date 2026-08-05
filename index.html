@@ -5,6 +5,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>NOVAHAUS · Descargador</title>
+  <link rel="manifest" href="manifest.json">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -25,7 +27,6 @@
           </div>
           <h1>NOVAHAUS · Descargador</h1>
         </div>
-        <p>Descarga fotos de inmuebles ordenadas para publicación</p>
       </div>
 
       <button id="themeToggleBtn" class="theme-btn" aria-label="Cambiar tema">
@@ -57,7 +58,7 @@
             <polyline points="17 8 12 3 7 8"/>
             <line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
-          <span>Subir nuevo data.json (opcional)</span>
+          <span>Subir Propiedades.xlsx (opcional)</span>
         </summary>
         <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
           <div class="drop" id="drop" style="padding: 16px 12px;">
@@ -68,14 +69,14 @@
                 <line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
             </div>
-            <strong style="font-size:13.5px;">Seleccionar archivo data.json</strong>
-            <span style="font-size:11.5px;">Toca o arrastra aquí un archivo .json actualizado</span>
+            <strong style="font-size:13.5px;">Seleccionar Propiedades.xlsx</strong>
+            <span style="font-size:11.5px;">Toca o arrastra aquí el archivo Propiedades.xlsx actualizado</span>
           </div>
         </div>
       </details>
-      <input type="file" id="fileInput" accept=".json,.txt">
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.json,.txt">
       <div class="stat-line" id="fileStat" style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-        <span id="fileStatText">⌛ Cargando data.json...</span>
+        <span id="fileStatText">⌛ Cargando datos...</span>
         <button id="resetDataBtn" class="btn btn-ghost btn-sm" style="display:none;padding:3px 8px;font-size:11px;min-height:26px;">Restablecer al original</button>
       </div>
     </div>
@@ -197,6 +198,13 @@
   </main>
 
   <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
 </body>
 
 </html>
