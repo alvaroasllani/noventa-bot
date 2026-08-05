@@ -594,7 +594,19 @@ async function copyToClipboard(text) {
   }
 }
 
-async function downloadObject(d, btn) {
+function isIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+function canShareFiles() {
+  return typeof navigator !== 'undefined' &&
+    typeof navigator.share === 'function' &&
+    typeof navigator.canShare === 'function';
+}
+
+async function downloadObject(d, btnTarget) {
+  const btn = btnTarget.closest ? btnTarget.closest('button') : btnTarget;
   const catalogText = d[FIELD.catalog] || d['vDBia'] || '';
   const textCopied = await copyToClipboard(catalogText);
 
@@ -609,6 +621,69 @@ async function downloadObject(d, btn) {
   const pill = btn.parentElement.querySelector('.progress-pill');
   pill.classList.add('show');
 
+  // Intentar Web Share API para guardar directamente en Galería de Fotos / enviar a WhatsApp
+  if (canShareFiles()) {
+    try {
+      const copyNotice = textCopied ? '📋 Catálogo copiado · ' : '';
+      pill.textContent = `${copyNotice}Cargando fotos para guardar/compartir...`;
+
+      const fileArray = [];
+      for (let i = 0; i < list.length; i++) {
+        if (CANCEL_DOWNLOADING_ALL) break;
+        pill.textContent = `${copyNotice}Cargando foto ${i + 1}/${list.length}...`;
+        const numStr = String(i + 1).padStart(2, '0');
+        const filename = i === 0 ? `${code}_01_Portada.jpg` : `${code}_${numStr}_Foto.jpg`;
+
+        try {
+          const res = await fetch(`https://lh3.googleusercontent.com/d/${list[i]}`);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const blob = await res.blob();
+          const file = new File([blob], filename, { type: blob.type || 'image/jpeg' });
+          fileArray.push(file);
+        } catch (err) {
+          console.warn('Error al obtener imagen para compartir:', err);
+        }
+      }
+
+      if (fileArray.length > 0 && navigator.canShare({ files: fileArray })) {
+        pill.textContent = `📲 Abriendo ventana de compartir del iPhone / celular...`;
+        await navigator.share({
+          title: code,
+          text: catalogText ? `${code} - ${(d[FIELD.title] || '').trim()}` : code,
+          files: fileArray
+        });
+        pill.textContent = `${copyNotice}✅ Fotos enviadas / guardadas`;
+        btn.disabled = false;
+        setTimeout(() => { pill.classList.remove('show'); }, 4000);
+        return;
+      }
+    } catch (shareErr) {
+      if (shareErr.name === 'AbortError') {
+        pill.textContent = textCopied ? '📋 Catálogo copiado' : 'Cancelado por el usuario';
+        btn.disabled = false;
+        setTimeout(() => { pill.classList.remove('show'); }, 3000);
+        return;
+      }
+      console.warn('navigator.share falló, usando descarga por defecto:', shareErr);
+    }
+  }
+
+  // Fallback para iOS si la Web Share API no estuviera disponible
+  if (isIOS()) {
+    const cardEl = btn.closest('.obj');
+    const linksList = cardEl ? cardEl.querySelector('.links-list') : null;
+    if (linksList) {
+      linksList.style.display = 'block';
+      pill.textContent = `📋 Catálogo copiado · Toca cada foto abajo para guardar en tu iPhone`;
+    } else {
+      pill.textContent = `📋 Catálogo copiado`;
+    }
+    btn.disabled = false;
+    setTimeout(() => { pill.classList.remove('show'); }, 6000);
+    return;
+  }
+
+  // Descarga secuencial estándar para PC / Escritorio
   for (let i = 0; i < list.length; i++) {
     if (CANCEL_DOWNLOADING_ALL) break;
 
@@ -665,6 +740,8 @@ function render(resetPagination = false) {
     return;
   }
 
+  const useShare = canShareFiles() || isIOS();
+
   visibleList.forEach(d => {
     const photoList = getPhotoList(d);
     const thumbId = photoList[0] || '';
@@ -683,12 +760,23 @@ function render(resetPagination = false) {
       </div>
       <div class="obj-actions">
         <button class="btn btn-primary btn-dl-jpg">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="7 10 12 15 17 10"/>
-            <line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
-          Descargar fotos (.jpg)
+          ${useShare ? `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="18" cy="5" r="3"/>
+              <circle cx="6" cy="12" r="3"/>
+              <circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+            <span>Guardar en Fotos / Compartir</span>
+          ` : `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            <span>Descargar fotos (.jpg)</span>
+          `}
         </button>
         <button class="btn btn-ghost btn-copy-facebook">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">

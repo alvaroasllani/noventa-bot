@@ -99,11 +99,12 @@ PROF / LOCAL       → PROF
 - Glide stores photos in multiple columns (`0C9DE`, `7fYNu`, `P0E5J`, `RiqQn`, etc.).
 - Function `getPhotoList(d)` scans all string properties of the row for Google Drive file URLs, prepending Portada (`0C9DE`) as Photo #1 and deduplicating.
 
-### 3. Reliable downloads
-- Visible link pills (`Foto 1 (Portada)`, `Foto 2`, etc.) allow 100% reliable 1-tap downloads in mobile browsers without triggering pop-up blocker restrictions.
+### 3. Reliable downloads & iOS Photo Saving (RESOLVED)
+- **Web Share API Support:** In iOS (Safari and Chrome on iPhone/iPad) and mobile browsers supporting `navigator.share({ files })`, clicking the primary photo button prepares all property images as `File` blobs and launches the native mobile share sheet. This allows iPhone users to tap **"Guardar 10 imágenes"** to save all property photos directly into their iPhone Photo Gallery/Camera Roll in 1 tap, or share them directly to WhatsApp.
+- Visible link pills (`Foto 1 (Portada)`, `Foto 2`, etc.) allow 100% reliable 1-tap direct access to individual photo links without pop-up blocker restrictions.
 
 ### 4. Automatic Catalog Text Copying (RESOLVED)
-- When clicking "Descargar fotos (.jpg)", the full property description text from `vDBia` (the catalog text) is automatically copied to the clipboard via `copyToClipboard()`.
+- When clicking "Guardar en Fotos / Compartir" or "Descargar fotos (.jpg)", the full property description text from `vDBia` (the catalog text) is automatically copied to the clipboard via `copyToClipboard()`.
 - An explicit "Copiar catálogo" button is also provided on each property card to copy the text manually at any time with visual feedback on the progress pill (`📋 Catálogo copiado`).
 
 ## Sheet generator (`generar_sheet.js`)
