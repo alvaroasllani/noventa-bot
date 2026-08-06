@@ -1,7 +1,7 @@
 {
-  "name": "NOVAHAUS Descargador",
-  "short_name": "NOVAHAUS",
-  "description": "Herramienta para descargar fotos y copiar catálogos de inmuebles NOVAHAUS",
+  "name": "DescargadorNova",
+  "short_name": "DescargadorNova",
+  "description": "Herramienta para descargar fotos y copiar catálogos de inmuebles DescargadorNova",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
