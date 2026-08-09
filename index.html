@@ -166,11 +166,11 @@
 
     <div class="toolbar" id="toolbar" style="display:none">
       <h2>Resultados</h2>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <div class="toolbar-controls">
         <span id="bulkStatusPill" class="progress-pill"></span>
-        <div class="photo-limit-picker" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);padding:3px 10px;border-radius:8px;border:1px solid var(--border);">
-          <label for="maxPhotosSelect" style="font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;font-family:var(--font-display);">Fotos max:</label>
-          <select id="maxPhotosSelect" style="font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:var(--font-mono);font-weight:600;cursor:pointer;outline:none;">
+        <div class="photo-limit-picker">
+          <label for="maxPhotosSelect">Fotos max:</label>
+          <select id="maxPhotosSelect">
             <option value="1">1 (Portada)</option>
             <option value="3">3 fotos</option>
             <option value="5">5 fotos</option>
