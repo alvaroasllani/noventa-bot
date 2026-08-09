@@ -27,6 +27,10 @@ document.getElementById('themeToggleBtn').addEventListener('click', () => {
   setTheme(current === 'dark' ? 'light' : 'dark');
 });
 
+document.getElementById('reloadPageBtn')?.addEventListener('click', () => {
+  window.location.reload();
+});
+
 initTheme();
 
 let ROWS = [];

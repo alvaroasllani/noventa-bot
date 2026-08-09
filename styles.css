@@ -571,6 +571,32 @@ select option {
   background: var(--surface-3);
 }
 
+.icon-btn {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.icon-btn:hover {
+  border-color: var(--border-hover);
+  background: var(--surface-3);
+  color: var(--accent);
+}
+
+.icon-btn:active {
+  transform: rotate(180deg);
+}
+
 .obj {
   background: var(--surface);
   border: 1px solid var(--border);
