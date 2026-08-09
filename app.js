@@ -605,12 +605,20 @@ function canShareFiles() {
     typeof navigator.canShare === 'function';
 }
 
+function getMaxPhotosLimit() {
+  const sel = document.getElementById('maxPhotosSelect');
+  if (!sel) return 10;
+  const val = parseInt(sel.value, 10);
+  return isNaN(val) || val <= 0 ? 999 : val;
+}
+
 async function downloadObject(d, btnTarget) {
   const btn = btnTarget.closest ? btnTarget.closest('button') : btnTarget;
   const catalogText = d[FIELD.catalog] || d['vDBia'] || '';
   const textCopied = await copyToClipboard(catalogText);
 
-  const list = getPhotoList(d).slice(0, 10);
+  const maxPhotos = getMaxPhotosLimit();
+  const list = getPhotoList(d).slice(0, maxPhotos);
   if (!list.length) {
     alert('Este objeto no tiene fotos detectadas.' + (textCopied ? ' (Texto catálogo copiado al portapapeles)' : ''));
     return;
@@ -738,7 +746,8 @@ async function shareUnified(d, btnTarget) {
   const catalogText = d[FIELD.catalog] || d['vDBia'] || d[FIELD.facebook] || d['abzcW'] || `${codeFor(d)} - ${(d[FIELD.title] || '').trim()}`;
   const textCopied = await copyToClipboard(catalogText);
   const code = codeFor(d);
-  const list = getPhotoList(d).slice(0, 10);
+  const maxPhotos = getMaxPhotosLimit();
+  const list = getPhotoList(d).slice(0, maxPhotos);
   const pill = btn.parentElement.querySelector('.progress-pill');
 
   btn.disabled = true;
@@ -994,7 +1003,9 @@ async function downloadAllFiltered() {
     return;
   }
 
-  if (!confirm(`Vas a descargar fotos de ${list.length} objetos (hasta 10 c/u). Puede tardar y tu navegador pedirá permitir pop-ups. ¿Continuar?`)) return;
+  const limit = getMaxPhotosLimit();
+  const limitText = limit >= 999 ? 'todas las fotos' : `hasta ${limit} foto${limit === 1 ? '' : 's'} por propiedad`;
+  if (!confirm(`Vas a descargar ${limitText} de ${list.length} objetos. Puede tardar y tu navegador pedirá permitir pop-ups. ¿Continuar?`)) return;
 
   IS_DOWNLOADING_ALL = true;
   IS_PAUSED_ALL = false;
@@ -1029,7 +1040,7 @@ async function downloadAllFiltered() {
     if (btn) {
       await downloadObject(d, btn);
     } else {
-      const photoList = getPhotoList(d).slice(0, 10);
+      const photoList = getPhotoList(d).slice(0, limit);
       for (let i = 0; i < photoList.length; i++) {
         if (CANCEL_DOWNLOADING_ALL) break;
         while (IS_PAUSED_ALL && !CANCEL_DOWNLOADING_ALL) {
@@ -1096,6 +1107,7 @@ document.getElementById('zoneFilter').addEventListener('change', () => render(tr
 document.getElementById('dayFilter').addEventListener('change', () => render(true));
 document.getElementById('statusFilter').addEventListener('change', () => render(true));
 document.getElementById('agentFilter').addEventListener('change', () => render(true));
+document.getElementById('maxPhotosSelect')?.addEventListener('change', () => render(false));
 document.getElementById('onlyActiveAgentsCheck')?.addEventListener('change', () => {
   updateAgentDropdown();
   render(true);

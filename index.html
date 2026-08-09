@@ -54,7 +54,7 @@
   </header>
 
   <main>
-    <div class="card" style="padding: 12px 14px;">
+    <div class="card" style="padding: 12px 14px; display: none;">
       <details id="uploadDetails">
         <summary style="font-size:13.5px;font-weight:600;display:flex;align-items:center;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);">
@@ -169,8 +169,19 @@
 
     <div class="toolbar" id="toolbar" style="display:none">
       <h2>Resultados</h2>
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <span id="bulkStatusPill" class="progress-pill"></span>
+        <div class="photo-limit-picker" style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-2);padding:3px 10px;border-radius:8px;border:1px solid var(--border);">
+          <label for="maxPhotosSelect" style="font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;font-family:var(--font-display);">Fotos max:</label>
+          <select id="maxPhotosSelect" style="font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:var(--font-mono);font-weight:600;cursor:pointer;outline:none;">
+            <option value="1">1 (Portada)</option>
+            <option value="3">3 fotos</option>
+            <option value="5">5 fotos</option>
+            <option value="10" selected>10 fotos</option>
+            <option value="15">15 fotos</option>
+            <option value="999">Todas</option>
+          </select>
+        </div>
         <button class="btn btn-ghost btn-sm" id="downloadAllBtn">
           <svg id="downloadAllIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
