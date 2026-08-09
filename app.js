@@ -794,21 +794,6 @@ async function shareToWhatsApp(d, btnTarget) {
   setTimeout(() => { pill.classList.remove('show'); }, 4000);
 }
 
-function openFacebookApp() {
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (isMobile) {
-    const start = Date.now();
-    window.location.href = 'fb://feed';
-    setTimeout(() => {
-      if (Date.now() - start < 1500) {
-        window.open('https://www.facebook.com/', '_blank');
-      }
-    }, 800);
-  } else {
-    window.open('https://www.facebook.com/', '_blank');
-  }
-}
-
 async function shareToFacebook(d, btnTarget) {
   const btn = btnTarget.closest ? btnTarget.closest('button') : btnTarget;
   const fbText = d[FIELD.facebook] || d['abzcW'] || d[FIELD.catalog] || d['vDBia'] || `${codeFor(d)} - ${(d[FIELD.title] || '').trim()}`;
@@ -822,21 +807,51 @@ async function shareToFacebook(d, btnTarget) {
 
   const copyNotice = textCopied ? '📋 Texto Facebook copiado · ' : '';
 
-  pill.textContent = `${copyNotice}Abriendo App de Facebook...`;
-  openFacebookApp();
+  if (!list.length) {
+    pill.textContent = `${copyNotice}Abriendo Facebook...`;
+    window.open('https://www.facebook.com/', '_blank');
+    btn.disabled = false;
+    setTimeout(() => { pill.classList.remove('show'); }, 3500);
+    return;
+  }
 
-  if (list.length > 0) {
+  pill.textContent = `${copyNotice}Cargando fotos 1/${list.length}...`;
+  const fileArray = await fetchPhotoFiles(list, code, (cur, total) => {
+    pill.textContent = `${copyNotice}Cargando fotos ${cur}/${total}...`;
+  });
+
+  if (canShareFiles() && fileArray.length > 0 && navigator.canShare({ files: fileArray })) {
+    try {
+      pill.textContent = `📘 Elige tu App de Facebook en el menú nativo...`;
+      await navigator.share({
+        title: code,
+        text: fbText,
+        files: fileArray
+      });
+      pill.textContent = `✅ Publicación enviada a Facebook`;
+    } catch (shareErr) {
+      if (shareErr.name === 'AbortError') {
+        pill.textContent = textCopied ? '📋 Texto copiado' : 'Cancelado por el usuario';
+      } else {
+        console.warn('Share a Facebook falló:', shareErr);
+        pill.textContent = `${copyNotice}Abriendo Facebook...`;
+        window.open('https://www.facebook.com/', '_blank');
+      }
+    }
+  } else {
+    // Fallback para PC / escritorios donde no hay Web Share de archivos
+    pill.textContent = `${copyNotice}Descargando fotos y abriendo Facebook...`;
+    window.open('https://www.facebook.com/', '_blank');
     for (let i = 0; i < list.length; i++) {
       if (CANCEL_DOWNLOADING_ALL) break;
-      pill.textContent = `${copyNotice}Descargando foto ${i + 1}/${list.length}...`;
       const numStr = String(i + 1).padStart(2, '0');
       const filename = i === 0 ? `${code}_01_Portada.jpg` : `${code}_${numStr}_Foto.jpg`;
       await downloadDirectPhoto(list[i], filename);
       await new Promise(res => setTimeout(res, 400));
     }
+    pill.textContent = `📋 Texto copiado · Fotos descargadas`;
   }
 
-  pill.textContent = `📋 Texto copiado (usa 'Pegar' en FB) · 📲 Facebook abierto`;
   btn.disabled = false;
   setTimeout(() => { pill.classList.remove('show'); }, 4000);
 }
