@@ -1,0 +1,36 @@
+name: Sincronizar Excel de Google Drive
+
+on:
+  schedule:
+    # Se ejecuta automáticamente cada 30 minutos
+    - cron: '*/30 * * * *'
+  workflow_dispatch: # Permite ejecutar manualmente con un clic en GitHub
+
+jobs:
+  sync-excel:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependencias
+        run: npm install xlsx
+
+      - name: Descargar y procesar Excel
+        env:
+          DRIVE_FILE_ID: ${{ secrets.DRIVE_FILE_ID }}
+        run: node scripts/update-excel.js
+
+      - name: Hacer commit y push si hay cambios
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "🤖 Sincronización automática de data.json desde Google Drive"
+          file_pattern: "data.json"
