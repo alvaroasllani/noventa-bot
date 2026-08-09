@@ -320,22 +320,35 @@ async function initData() {
 let currentDataSignature = null;
 let checkerInterval = null;
 
-function computeDataSignature(text) {
-  let hash = 0;
-  for (let i = 0; i < text.length; i++) {
-    hash = ((hash << 5) - hash) + text.charCodeAt(i);
-    hash |= 0;
-  }
-  return `${text.length}_${hash}`;
-}
-
 async function checkForRemoteUpdate() {
+  if (document.hidden) return; // Pausar verificación si la pestaña está oculta/minimizada
+
   try {
-    const res = await fetch(`./data.json?v=${Date.now()}`, { cache: 'no-cache' });
-    if (!res.ok) return;
-    const text = await res.text();
-    const sig = computeDataSignature(text);
-    if (currentDataSignature && sig !== currentDataSignature) {
+    // Petición HEAD: Solo pide encabezados HTTP (~0.5 KB), NO descarga el contenido data.json
+    let res = await fetch(`./data.json?v=${Date.now()}`, { method: 'HEAD', cache: 'no-cache' });
+    let sig = '';
+
+    if (res.ok) {
+      const etag = res.headers.get('etag');
+      const lm = res.headers.get('last-modified');
+      const cl = res.headers.get('content-length');
+      sig = etag || lm || cl || '';
+    }
+
+    // Respaldo por si el servidor no incluye etag/last-modified en respuestas HEAD
+    if (!sig) {
+      res = await fetch(`./data.json?v=${Date.now()}`, { cache: 'no-cache' });
+      if (!res.ok) return;
+      const text = await res.text();
+      let hash = 0;
+      for (let i = 0; i < text.length; i++) {
+        hash = ((hash << 5) - hash) + text.charCodeAt(i);
+        hash |= 0;
+      }
+      sig = `${text.length}_${hash}`;
+    }
+
+    if (currentDataSignature && sig && sig !== currentDataSignature) {
       const btn = document.getElementById('reloadPageBtn');
       if (btn && !btn.classList.contains('has-update')) {
         btn.classList.add('has-update');
@@ -343,14 +356,17 @@ async function checkForRemoteUpdate() {
       }
     }
   } catch (e) {
-    // Silently ignore network errors in background poll
+    // Ignorar errores de red silenciosamente
   }
 }
 
 function startAutoUpdateChecker() {
   if (checkerInterval) return;
-  checkerInterval = setInterval(checkForRemoteUpdate, 15000);
+  checkerInterval = setInterval(checkForRemoteUpdate, 30000);
   window.addEventListener('focus', checkForRemoteUpdate);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) checkForRemoteUpdate();
+  });
 }
 
 async function fetchDefaultData() {
@@ -362,8 +378,18 @@ async function fetchDefaultData() {
   try {
     const res = await fetch('./data.json');
     if (!res.ok) throw new Error('HTTP ' + res.status);
+    const etag = res.headers.get('etag');
+    const lm = res.headers.get('last-modified');
+    const cl = res.headers.get('content-length');
+
     const text = await res.text();
-    currentDataSignature = computeDataSignature(text);
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+      hash = ((hash << 5) - hash) + text.charCodeAt(i);
+      hash |= 0;
+    }
+    currentDataSignature = etag || lm || cl || `${text.length}_${hash}`;
+
     const ok = loadData(text, false);
     if (ok) {
       statText.innerHTML = `✅ <b>Datos de Propiedades cargados</b> (${ROWS.length} objetos)`;
