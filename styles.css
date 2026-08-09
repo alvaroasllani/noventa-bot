@@ -525,6 +525,34 @@ select option {
   border-color: var(--danger);
 }
 
+.btn-whatsapp {
+  background: #25D366;
+  color: #ffffff;
+  border-color: #20bd5a;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(37, 211, 102, 0.25);
+}
+
+.btn-whatsapp:hover {
+  background: #20bd5a;
+  border-color: #1da850;
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.35);
+}
+
+.btn-facebook {
+  background: #1877F2;
+  color: #ffffff;
+  border-color: #166fe5;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(24, 119, 242, 0.25);
+}
+
+.btn-facebook:hover {
+  background: #166fe5;
+  border-color: #1464d2;
+  box-shadow: 0 4px 12px rgba(24, 119, 242, 0.35);
+}
+
 .theme-btn {
   background: var(--surface-2);
   color: var(--text);

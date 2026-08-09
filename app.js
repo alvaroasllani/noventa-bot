@@ -712,6 +712,146 @@ async function downloadObject(d, btnTarget) {
   setTimeout(() => { pill.classList.remove('show'); }, 4000);
 }
 
+async function fetchPhotoFiles(photoIds, code, onProgress) {
+  const fileArray = [];
+  for (let i = 0; i < photoIds.length; i++) {
+    if (CANCEL_DOWNLOADING_ALL) break;
+    if (onProgress) onProgress(i + 1, photoIds.length);
+    const numStr = String(i + 1).padStart(2, '0');
+    const filename = i === 0 ? `${code}_01_Portada.jpg` : `${code}_${numStr}_Foto.jpg`;
+
+    try {
+      const res = await fetch(`https://lh3.googleusercontent.com/d/${photoIds[i]}`);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const blob = await res.blob();
+      const file = new File([blob], filename, { type: blob.type || 'image/jpeg' });
+      fileArray.push(file);
+    } catch (err) {
+      console.warn(`Error al cargar foto ${i + 1}:`, err);
+    }
+  }
+  return fileArray;
+}
+
+async function shareToWhatsApp(d, btnTarget) {
+  const btn = btnTarget.closest ? btnTarget.closest('button') : btnTarget;
+  const catalogText = d[FIELD.catalog] || d['vDBia'] || `${codeFor(d)} - ${(d[FIELD.title] || '').trim()}`;
+  const textCopied = await copyToClipboard(catalogText);
+  const code = codeFor(d);
+  const list = getPhotoList(d).slice(0, 10);
+  const pill = btn.parentElement.querySelector('.progress-pill');
+
+  btn.disabled = true;
+  pill.classList.add('show');
+
+  const copyNotice = textCopied ? '📋 Texto copiado · ' : '';
+
+  if (!list.length) {
+    pill.textContent = `${copyNotice}Abriendo WhatsApp...`;
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(catalogText)}`;
+    window.open(waUrl, '_blank');
+    btn.disabled = false;
+    setTimeout(() => { pill.classList.remove('show'); }, 3500);
+    return;
+  }
+
+  pill.textContent = `${copyNotice}Cargando fotos 1/${list.length}...`;
+  const fileArray = await fetchPhotoFiles(list, code, (cur, total) => {
+    pill.textContent = `${copyNotice}Cargando fotos ${cur}/${total}...`;
+  });
+
+  if (canShareFiles() && fileArray.length > 0 && navigator.canShare({ files: fileArray })) {
+    try {
+      pill.textContent = `💬 Selecciona WhatsApp (Contacto/Grupo)...`;
+      await navigator.share({
+        title: code,
+        text: catalogText,
+        files: fileArray
+      });
+      pill.textContent = `✅ Enviado a WhatsApp`;
+    } catch (shareErr) {
+      if (shareErr.name === 'AbortError') {
+        pill.textContent = textCopied ? '📋 Texto copiado' : 'Cancelado por el usuario';
+      } else {
+        console.warn('Share a WhatsApp falló, abriendo fallback:', shareErr);
+        const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(catalogText)}`;
+        window.open(waUrl, '_blank');
+      }
+    }
+  } else {
+    pill.textContent = `${copyNotice}Descargando fotos y abriendo WhatsApp...`;
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(catalogText)}`;
+    window.open(waUrl, '_blank');
+    for (let i = 0; i < list.length; i++) {
+      const numStr = String(i + 1).padStart(2, '0');
+      const filename = i === 0 ? `${code}_01_Portada.jpg` : `${code}_${numStr}_Foto.jpg`;
+      await downloadDirectPhoto(list[i], filename);
+      await new Promise(res => setTimeout(res, 400));
+    }
+  }
+
+  btn.disabled = false;
+  setTimeout(() => { pill.classList.remove('show'); }, 4000);
+}
+
+async function shareToFacebook(d, btnTarget) {
+  const btn = btnTarget.closest ? btnTarget.closest('button') : btnTarget;
+  const fbText = d[FIELD.facebook] || d['abzcW'] || d[FIELD.catalog] || d['vDBia'] || `${codeFor(d)} - ${(d[FIELD.title] || '').trim()}`;
+  const textCopied = await copyToClipboard(fbText);
+  const code = codeFor(d);
+  const list = getPhotoList(d).slice(0, 10);
+  const pill = btn.parentElement.querySelector('.progress-pill');
+
+  btn.disabled = true;
+  pill.classList.add('show');
+
+  const copyNotice = textCopied ? '📋 Texto Facebook copiado · ' : '';
+
+  if (!list.length) {
+    pill.textContent = `${copyNotice}Abriendo Facebook...`;
+    window.open('https://www.facebook.com/', '_blank');
+    btn.disabled = false;
+    setTimeout(() => { pill.classList.remove('show'); }, 3500);
+    return;
+  }
+
+  pill.textContent = `${copyNotice}Cargando fotos 1/${list.length}...`;
+  const fileArray = await fetchPhotoFiles(list, code, (cur, total) => {
+    pill.textContent = `${copyNotice}Cargando fotos ${cur}/${total}...`;
+  });
+
+  if (canShareFiles() && fileArray.length > 0 && navigator.canShare({ files: fileArray })) {
+    try {
+      pill.textContent = `📘 Elige Facebook en el menú (Pega el texto si es necesario)...`;
+      await navigator.share({
+        title: code,
+        text: fbText,
+        files: fileArray
+      });
+      pill.textContent = `✅ Publicado en Facebook`;
+    } catch (shareErr) {
+      if (shareErr.name === 'AbortError') {
+        pill.textContent = textCopied ? '📋 Texto copiado' : 'Cancelado por el usuario';
+      } else {
+        console.warn('Share a Facebook falló, abriendo fallback:', shareErr);
+        window.open('https://www.facebook.com/', '_blank');
+      }
+    }
+  } else {
+    pill.textContent = `${copyNotice}Descargando fotos y abriendo Facebook...`;
+    window.open('https://www.facebook.com/', '_blank');
+    for (let i = 0; i < list.length; i++) {
+      const numStr = String(i + 1).padStart(2, '0');
+      const filename = i === 0 ? `${code}_01_Portada.jpg` : `${code}_${numStr}_Foto.jpg`;
+      await downloadDirectPhoto(list[i], filename);
+      await new Promise(res => setTimeout(res, 400));
+    }
+  }
+
+  btn.disabled = false;
+  setTimeout(() => { pill.classList.remove('show'); }, 4000);
+}
+
 let PAGE_SIZE = 10;
 let VISIBLE_COUNT = 10;
 
@@ -759,6 +899,18 @@ function render(resetPagination = false) {
         </div>
       </div>
       <div class="obj-actions">
+        <button class="btn btn-whatsapp btn-share-whatsapp">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.99c-.002 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+          </svg>
+          Enviar a WhatsApp
+        </button>
+        <button class="btn btn-facebook btn-share-facebook">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+          </svg>
+          Publicar en Facebook
+        </button>
         <button class="btn btn-primary btn-dl-jpg">
           ${useShare ? `
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -768,7 +920,7 @@ function render(resetPagination = false) {
               <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
               <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
             </svg>
-            <span>Guardar en Fotos / Compartir</span>
+            <span>Guardar en Fotos</span>
           ` : `
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -778,18 +930,18 @@ function render(resetPagination = false) {
             <span>Descargar fotos (.jpg)</span>
           `}
         </button>
-        <button class="btn btn-ghost btn-copy-facebook">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-          </svg>
-          Copiar Facebook
-        </button>
         <button class="btn btn-ghost btn-copy-catalog">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
           </svg>
           Copiar catálogo
+        </button>
+        <button class="btn btn-ghost btn-copy-facebook">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+          </svg>
+          Copiar FB
         </button>
         <button class="btn btn-ghost toggle-links">Ver enlaces (${count})</button>
         <span class="progress-pill"></span>
@@ -815,6 +967,8 @@ function render(resetPagination = false) {
     el.querySelector('.toggle-links').addEventListener('click', () => {
       linksList.style.display = linksList.style.display === 'none' ? 'block' : 'none';
     });
+    el.querySelector('.btn-share-whatsapp').addEventListener('click', (e) => shareToWhatsApp(d, e.target));
+    el.querySelector('.btn-share-facebook').addEventListener('click', (e) => shareToFacebook(d, e.target));
     el.querySelector('.btn-dl-jpg').addEventListener('click', (e) => downloadObject(d, e.target));
     el.querySelector('.btn-copy-catalog').addEventListener('click', async () => {
       const catalogText = d[FIELD.catalog] || d['vDBia'] || '';
