@@ -979,7 +979,6 @@ function render(resetPagination = false) {
   });
 
   container.appendChild(fragment);
-}
 
   if (list.length > VISIBLE_COUNT) {
     const nextBatch = Math.min(PAGE_SIZE, list.length - VISIBLE_COUNT);
