@@ -4,14 +4,8 @@ const https = require('https');
 const XLSX = require('xlsx');
 
 const DRIVE_FILE_ID = process.env.DRIVE_FILE_ID || '';
-
-if (!DRIVE_FILE_ID) {
-  console.error('❌ ERROR: DRIVE_FILE_ID no está configurado.');
-  process.exit(1);
-}
-
-const DOWNLOAD_URL = `https://docs.google.com/uc?export=download&id=${DRIVE_FILE_ID}`;
-const LOCAL_XLSX = path.join(__dirname, '..', 'temp_propiedades.xlsx');
+const ROOT_XLSX = path.join(__dirname, '..', 'Propiedades.xlsx');
+const TEMP_XLSX = path.join(__dirname, '..', 'temp_propiedades.xlsx');
 const TARGET_JSON = path.join(__dirname, '..', 'data.json');
 
 function downloadFile(url, dest) {
@@ -35,11 +29,23 @@ function downloadFile(url, dest) {
 }
 
 async function main() {
-  console.log('📥 Descargando Propiedades.xlsx desde Google Drive...');
-  await downloadFile(DOWNLOAD_URL, LOCAL_XLSX);
+  let fileToRead = '';
+
+  if (DRIVE_FILE_ID) {
+    console.log('📥 Descargando Propiedades.xlsx desde Google Drive...');
+    const downloadUrl = `https://docs.google.com/uc?export=download&id=${DRIVE_FILE_ID}`;
+    await downloadFile(downloadUrl, TEMP_XLSX);
+    fileToRead = TEMP_XLSX;
+  } else if (fs.existsSync(ROOT_XLSX)) {
+    console.log('📂 Usando Propiedades.xlsx local...');
+    fileToRead = ROOT_XLSX;
+  } else {
+    console.error('❌ ERROR: No se encontró DRIVE_FILE_ID ni el archivo local Propiedades.xlsx.');
+    process.exit(1);
+  }
 
   console.log('🔄 Leyendo y convirtiendo Excel a data.json...');
-  const wb = XLSX.readFile(LOCAL_XLSX);
+  const wb = XLSX.readFile(fileToRead);
   const sheet = wb.Sheets[wb.SheetNames[0]];
   const rawExcel = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
@@ -83,8 +89,8 @@ async function main() {
     oldJsonStr = fs.readFileSync(TARGET_JSON, 'utf-8');
   }
 
-  if (fs.existsSync(LOCAL_XLSX)) {
-    fs.unlinkSync(LOCAL_XLSX);
+  if (fs.existsSync(TEMP_XLSX)) {
+    fs.unlinkSync(TEMP_XLSX);
   }
 
   if (oldJsonStr.trim() === newJsonStr.trim()) {
