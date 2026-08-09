@@ -317,6 +317,42 @@ async function initData() {
   fetchDefaultData();
 }
 
+let currentDataSignature = null;
+let checkerInterval = null;
+
+function computeDataSignature(text) {
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    hash = ((hash << 5) - hash) + text.charCodeAt(i);
+    hash |= 0;
+  }
+  return `${text.length}_${hash}`;
+}
+
+async function checkForRemoteUpdate() {
+  try {
+    const res = await fetch(`./data.json?v=${Date.now()}`, { cache: 'no-cache' });
+    if (!res.ok) return;
+    const text = await res.text();
+    const sig = computeDataSignature(text);
+    if (currentDataSignature && sig !== currentDataSignature) {
+      const btn = document.getElementById('reloadPageBtn');
+      if (btn && !btn.classList.contains('has-update')) {
+        btn.classList.add('has-update');
+        btn.title = '✨ ¡Nueva versión o push detectado! Haz clic para recargar la página';
+      }
+    }
+  } catch (e) {
+    // Silently ignore network errors in background poll
+  }
+}
+
+function startAutoUpdateChecker() {
+  if (checkerInterval) return;
+  checkerInterval = setInterval(checkForRemoteUpdate, 15000);
+  window.addEventListener('focus', checkForRemoteUpdate);
+}
+
 async function fetchDefaultData() {
   const statText = document.getElementById('fileStatText');
   const resetBtn = document.getElementById('resetDataBtn');
@@ -327,9 +363,11 @@ async function fetchDefaultData() {
     const res = await fetch('./data.json');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const text = await res.text();
+    currentDataSignature = computeDataSignature(text);
     const ok = loadData(text, false);
     if (ok) {
       statText.innerHTML = `✅ <b>Datos de Propiedades cargados</b> (${ROWS.length} objetos)`;
+      startAutoUpdateChecker();
     } else {
       statText.innerHTML = `⚠️ Error al procesar datos base. Puedes subir Propiedades.xlsx abajo.`;
     }

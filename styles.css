@@ -597,6 +597,51 @@ select option {
   transform: rotate(180deg);
 }
 
+.icon-btn.has-update {
+  background: linear-gradient(135deg, #10b981, #059669) !important;
+  color: #ffffff !important;
+  border-color: #34d399 !important;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.8), 0 0 20px rgba(16, 185, 129, 0.5);
+  animation: pulse-shake 1.2s infinite cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  position: relative;
+}
+
+.icon-btn.has-update::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 9px;
+  height: 9px;
+  background-color: #ef4444;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  box-shadow: 0 0 6px #ef4444;
+}
+
+@keyframes pulse-shake {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.6), 0 0 16px rgba(16, 185, 129, 0.3);
+  }
+  15% {
+    transform: scale(1.15) rotate(-12deg);
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.9), 0 0 26px rgba(16, 185, 129, 0.6);
+  }
+  30% {
+    transform: scale(1.15) rotate(12deg);
+  }
+  45% {
+    transform: scale(1.15) rotate(-8deg);
+  }
+  60% {
+    transform: scale(1.15) rotate(8deg);
+  }
+  75% {
+    transform: scale(1.05) rotate(0deg);
+  }
+}
+
 .obj {
   background: var(--surface);
   border: 1px solid var(--border);

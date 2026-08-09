@@ -1,4 +1,4 @@
-const CACHE_NAME = 'descargadornova-v3';
+const CACHE_NAME = 'descargadornova-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -31,6 +31,24 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  const url = new URL(e.request.url);
+
+  // Network-first strategy for data.json or update checks to detect pushes immediately
+  if (url.pathname.endsWith('data.json') || url.search.includes('v=')) {
+    e.respondWith(
+      fetch(e.request)
+        .then((res) => {
+          if (res.status === 200) {
+            const cacheCopy = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(e.request, cacheCopy));
+          }
+          return res;
+        })
+        .catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
   e.respondWith(
     caches.match(e.request).then((cached) => {
       const networked = fetch(e.request)
