@@ -724,6 +724,12 @@ select option {
   box-shadow: var(--shadow-sm);
 }
 
+.toolbar-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .toolbar h2 {
   font-family: var(--font-display);
   font-size: 15px;
@@ -737,23 +743,24 @@ select option {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .photo-limit-picker {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   background: var(--surface-2);
-  padding: 3px 10px;
+  padding: 3px 8px;
   border-radius: 8px;
   border: 1px solid var(--border);
   height: 36px;
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .photo-limit-picker label {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   color: var(--muted);
   white-space: nowrap;
@@ -761,8 +768,8 @@ select option {
 }
 
 .photo-limit-picker select {
-  font-size: 12px;
-  padding: 3px 8px;
+  font-size: 11.5px;
+  padding: 3px 4px;
   border-radius: 6px;
   border: 1px solid var(--border);
   background: var(--surface);
@@ -775,13 +782,14 @@ select option {
 
 .toolbar #downloadAllBtn {
   height: 36px;
-  padding: 0 14px;
+  padding: 0 12px;
   font-size: 12.5px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .app-footer {
@@ -844,6 +852,10 @@ select option {
     gap: 8px;
     padding: 10px 12px;
   }
+  .toolbar-header {
+    justify-content: space-between;
+    width: 100%;
+  }
   .toolbar h2 {
     font-size: 14px;
   }
@@ -851,17 +863,24 @@ select option {
     display: flex;
     flex-direction: row;
     align-items: center;
+    justify-content: space-between;
     gap: 8px;
     width: 100%;
+    flex-wrap: nowrap;
   }
   .photo-limit-picker {
-    flex: 0 0 auto;
-    height: 36px;
+    flex: 1 1 45%;
+    justify-content: center;
+    min-width: 0;
+  }
+  .photo-limit-picker select {
+    max-width: 90px;
   }
   .toolbar #downloadAllBtn {
-    flex: 1 1 auto;
+    flex: 1 1 55%;
     height: 36px;
     justify-content: center;
+    min-width: 0;
   }
   .obj-head {
     padding: 12px;
