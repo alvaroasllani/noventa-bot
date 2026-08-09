@@ -721,24 +721,34 @@ async function downloadObject(d, btnTarget) {
 }
 
 async function fetchPhotoFiles(photoIds, code, onProgress) {
-  const fileArray = [];
-  for (let i = 0; i < photoIds.length; i++) {
-    if (CANCEL_DOWNLOADING_ALL) break;
-    if (onProgress) onProgress(i + 1, photoIds.length);
-    const numStr = String(i + 1).padStart(2, '0');
-    const filename = i === 0 ? `${code}_01_Portada.jpg` : `${code}_${numStr}_Foto.jpg`;
+  const total = photoIds.length;
+  const fileArray = new Array(total);
+  let completed = 0;
 
-    try {
-      const res = await fetch(`https://lh3.googleusercontent.com/d/${photoIds[i]}`);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const blob = await res.blob();
-      const file = new File([blob], filename, { type: blob.type || 'image/jpeg' });
-      fileArray.push(file);
-    } catch (err) {
-      console.warn(`Error al cargar foto ${i + 1}:`, err);
-    }
+  // Carga paralela en lotes de 3 para máximo rendimiento
+  const batchSize = 3;
+  for (let i = 0; i < total; i += batchSize) {
+    if (CANCEL_DOWNLOADING_ALL) break;
+    const batch = photoIds.slice(i, i + batchSize);
+    await Promise.all(batch.map(async (id, batchIdx) => {
+      const idx = i + batchIdx;
+      const numStr = String(idx + 1).padStart(2, '0');
+      const filename = idx === 0 ? `${code}_01_Portada.jpg` : `${code}_${numStr}_Foto.jpg`;
+
+      try {
+        const res = await fetch(`https://lh3.googleusercontent.com/d/${id}`);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const blob = await res.blob();
+        fileArray[idx] = new File([blob], filename, { type: blob.type || 'image/jpeg' });
+      } catch (err) {
+        console.warn(`Error al cargar foto ${idx + 1}:`, err);
+      } finally {
+        completed++;
+        if (onProgress) onProgress(completed, total);
+      }
+    }));
   }
-  return fileArray;
+  return fileArray.filter(Boolean);
 }
 
 async function shareUnified(d, btnTarget) {
@@ -842,11 +852,14 @@ function render(resetPagination = false) {
   }
 
   const useShare = isIOS();
+  const maxPhotos = getMaxPhotosLimit();
+  const fragment = document.createDocumentFragment();
 
   visibleList.forEach(d => {
     const photoList = getPhotoList(d);
-    const thumbId = photoList[0] || '';
-    const count = photoList.length;
+    const displayPhotos = photoList.slice(0, maxPhotos);
+    const thumbId = displayPhotos[0] || photoList[0] || '';
+    const count = displayPhotos.length;
 
     const el = document.createElement('div');
     el.className = 'obj';
@@ -909,7 +922,7 @@ function render(resetPagination = false) {
       <div class="links-list" style="display:none;padding:0 14px 14px;border-top:1px solid var(--border);margin-top:10px;padding-top:12px;"></div>
     `;
     const linksList = el.querySelector('.links-list');
-    photoList.slice(0, 10).forEach((id, i) => {
+    displayPhotos.forEach((id, i) => {
       const link = document.createElement('a');
       link.href = `https://lh3.googleusercontent.com/d/${id}`;
       link.textContent = i === 0 ? `Foto 1 (Portada)` : `Foto ${i + 1}`;
@@ -962,8 +975,11 @@ function render(resetPagination = false) {
       setTimeout(() => { pill.classList.remove('show'); }, 3500);
     });
 
-    container.appendChild(el);
+    fragment.appendChild(el);
   });
+
+  container.appendChild(fragment);
+}
 
   if (list.length > VISIBLE_COUNT) {
     const nextBatch = Math.min(PAGE_SIZE, list.length - VISIBLE_COUNT);
@@ -1068,6 +1084,14 @@ async function downloadAllFiltered() {
   }
 }
 
+function debounce(func, wait = 150) {
+  let timeout;
+  return function (...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), wait);
+  };
+}
+
 document.getElementById('cancelDownloadBtn').addEventListener('click', () => {
   if (confirm('¿Deseas cancelar la descarga masiva en curso?')) {
     CANCEL_DOWNLOADING_ALL = true;
@@ -1075,7 +1099,7 @@ document.getElementById('cancelDownloadBtn').addEventListener('click', () => {
   }
 });
 
-document.getElementById('pasteInput').addEventListener('input', () => render(true));
+document.getElementById('pasteInput').addEventListener('input', debounce(() => render(true), 180));
 document.getElementById('pasteClipboardBtn').addEventListener('click', async () => {
   try {
     const text = await navigator.clipboard.readText();
@@ -1099,7 +1123,7 @@ document.getElementById('clearPasteBtn').addEventListener('click', () => {
 
 document.getElementById('pasteInput').value = '';
 
-document.getElementById('searchInput').addEventListener('input', () => render(true));
+document.getElementById('searchInput').addEventListener('input', debounce(() => render(true), 180));
 document.getElementById('activeFilter').addEventListener('change', () => render(true));
 document.getElementById('opFilter').addEventListener('change', () => render(true));
 document.getElementById('typeFilter').addEventListener('change', () => render(true));

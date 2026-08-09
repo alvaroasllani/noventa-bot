@@ -1,10 +1,11 @@
-const CACHE_NAME = 'descargadornova-v2';
+const CACHE_NAME = 'descargadornova-v3';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
   './manifest.json',
+  './icon.png',
   './data.json'
 ];
 
@@ -34,8 +35,10 @@ self.addEventListener('fetch', (e) => {
     caches.match(e.request).then((cached) => {
       const networked = fetch(e.request)
         .then((res) => {
-          const cacheCopy = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, cacheCopy));
+          if (res.status === 200) {
+            const cacheCopy = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(e.request, cacheCopy));
+          }
           return res;
         })
         .catch(() => cached);
