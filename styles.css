@@ -138,6 +138,13 @@ header .brand-mark {
   background: #ffffff;
   border: 1px solid var(--border);
   box-shadow: 0 2px 8px rgba(11, 37, 69, 0.12);
+  transition: all 0.25s ease;
+}
+
+[data-theme="dark"] header .brand-mark {
+  background: #ffffff;
+  border-color: rgba(230, 168, 56, 0.4);
+  box-shadow: 0 0 12px rgba(230, 168, 56, 0.25);
 }
 
 header .brand-icon-img {
