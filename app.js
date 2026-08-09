@@ -920,30 +920,10 @@ function render(resetPagination = false) {
           </svg>
           Copiar FB
         </button>
-        <button class="btn btn-ghost toggle-links">Ver enlaces (${count})</button>
         <span class="progress-pill"></span>
       </div>
-      <div class="links-list" style="display:none;padding:0 14px 14px;border-top:1px solid var(--border);margin-top:10px;padding-top:12px;"></div>
     `;
-    const linksList = el.querySelector('.links-list');
-    displayPhotos.forEach((id, i) => {
-      const link = document.createElement('a');
-      link.href = `https://lh3.googleusercontent.com/d/${id}`;
-      link.textContent = i === 0 ? `Foto 1 (Portada)` : `Foto ${i + 1}`;
-      link.style.cssText = `display:inline-flex;align-items:center;margin:3px 6px 3px 0;padding:6px 12px;background:${i === 0 ? 'var(--accent)' : 'var(--surface-2)'};color:${i === 0 ? 'var(--accent-text)' : 'var(--text)'};border-radius:6px;font-size:12px;font-family:var(--font-mono);text-decoration:none;font-weight:${i === 0 ? '700' : '500'};border:1px solid ${i === 0 ? 'var(--accent)' : 'var(--border)'};cursor:pointer;`;
-      link.addEventListener('click', (ev) => {
-        ev.preventDefault();
-        const code = codeFor(d);
-        const numStr = String(i + 1).padStart(2, '0');
-        const filename = i === 0 ? `${code}_01_Portada.jpg` : `${code}_${numStr}_Foto.jpg`;
-        downloadDirectPhoto(id, filename);
-      });
-      linksList.appendChild(link);
-    });
 
-    el.querySelector('.toggle-links').addEventListener('click', () => {
-      linksList.style.display = linksList.style.display === 'none' ? 'block' : 'none';
-    });
     el.querySelector('.btn-share-main').addEventListener('click', (e) => shareUnified(d, e.target));
     el.querySelector('.btn-dl-jpg').addEventListener('click', (e) => downloadObject(d, e.target));
     el.querySelector('.btn-copy-catalog').addEventListener('click', async () => {

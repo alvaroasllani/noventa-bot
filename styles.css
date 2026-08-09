@@ -927,11 +927,13 @@ select option {
     font-size: 13px;
     justify-content: center;
   }
-  .obj-actions .btn-ghost {
+  .obj-actions .btn-copy-catalog,
+  .obj-actions .btn-copy-facebook {
     flex: 1 1 calc(50% - 4px);
-    min-height: 32px;
-    font-size: 11.5px;
-    padding: 4px 6px;
+    min-height: 38px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 8px;
     justify-content: center;
   }
 }
