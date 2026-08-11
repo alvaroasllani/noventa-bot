@@ -27,6 +27,8 @@ jobs:
       - name: Descargar y procesar Excel
         env:
           DRIVE_FILE_ID: ${{ secrets.DRIVE_FILE_ID }}
+          DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
+          DRIVE_API_KEY: ${{ secrets.DRIVE_API_KEY }}
         run: node scripts/update-excel.js
 
       - name: Hacer commit y push si hay cambios

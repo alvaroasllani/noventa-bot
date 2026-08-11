@@ -4,9 +4,26 @@ const https = require('https');
 const XLSX = require('xlsx');
 
 const DRIVE_FILE_ID = process.env.DRIVE_FILE_ID || '';
+const DRIVE_FOLDER_ID = process.env.DRIVE_FOLDER_ID || '';
+const DRIVE_API_KEY = process.env.DRIVE_API_KEY || '';
+
 const ROOT_XLSX = path.join(__dirname, '..', 'Propiedades.xlsx');
 const TEMP_XLSX = path.join(__dirname, '..', 'temp_propiedades.xlsx');
 const TARGET_JSON = path.join(__dirname, '..', 'data.json');
+
+function fetchText(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, res => {
+      if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 303) {
+        return fetchText(res.headers.location).then(resolve).catch(reject);
+      }
+      if (res.statusCode !== 200) return reject(new Error(`HTTP status ${res.statusCode}`));
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve(data));
+    }).on('error', reject);
+  });
+}
 
 function downloadFile(url, dest) {
   return new Promise((resolve, reject) => {
@@ -28,6 +45,43 @@ function downloadFile(url, dest) {
   });
 }
 
+async function getLatestFileIdFromFolder(folderId, apiKey) {
+  if (apiKey) {
+    try {
+      const apiUrl = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+trashed=false&orderBy=modifiedTime+desc&fields=files(id,name,modifiedTime,mimeType)&key=${apiKey}`;
+      const jsonText = await fetchText(apiUrl);
+      const data = JSON.parse(jsonText);
+      if (data.files && data.files.length > 0) {
+        const xlsxFile = data.files.find(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls') || (f.mimeType && f.mimeType.includes('spreadsheet')));
+        if (xlsxFile) {
+          console.log(`📌 Archivo más reciente encontrado vía API: ${xlsxFile.name} (Modificado: ${xlsxFile.modifiedTime})`);
+          return xlsxFile.id;
+        }
+      }
+    } catch (e) {
+      console.log('⚠️ Error al consultar Drive API v3:', e.message);
+    }
+  }
+
+  try {
+    const embedUrl = `https://drive.google.com/embeddedfolderview?id=${folderId}`;
+    const html = await fetchText(embedUrl);
+    const matches = [...html.matchAll(/id="entry-([^"]+)"[\s\S]*?<div class="name" title="([^"]+)"[\s\S]*?<div class="date" title="([^"]+)"/g)];
+    if (matches.length > 0) {
+      const files = matches.map(m => ({ id: m[1], name: m[2], dateStr: m[3] }));
+      const xlsxFiles = files.filter(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls') || !f.name.includes('.'));
+      if (xlsxFiles.length > 0) {
+        console.log(`📌 Archivo más reciente en carpeta pública: ${xlsxFiles[0].name}`);
+        return xlsxFiles[0].id;
+      }
+    }
+  } catch (e) {
+    console.log('⚠️ No se pudo obtener la lista vía vista pública de carpeta:', e.message);
+  }
+
+  return '';
+}
+
 function getColValue(row, ...possibleNames) {
   const keys = Object.keys(row);
   for (const name of possibleNames) {
@@ -42,17 +96,28 @@ function getColValue(row, ...possibleNames) {
 
 async function main() {
   let fileToRead = '';
+  let targetFileId = DRIVE_FILE_ID;
 
-  if (DRIVE_FILE_ID) {
-    console.log('📥 Descargando Excel desde Google Drive...');
-    const downloadUrl = `https://docs.google.com/uc?export=download&id=${DRIVE_FILE_ID}`;
+  if (DRIVE_FOLDER_ID) {
+    console.log(`📂 Buscando el archivo Excel más reciente dentro de la carpeta Drive ID: ${DRIVE_FOLDER_ID}...`);
+    const folderLatestId = await getLatestFileIdFromFolder(DRIVE_FOLDER_ID, DRIVE_API_KEY);
+    if (folderLatestId) {
+      targetFileId = folderLatestId;
+    } else {
+      console.log('⚠️ No se pudo resolver automáticamente el archivo desde la carpeta, usando DRIVE_FILE_ID de respaldo.');
+    }
+  }
+
+  if (targetFileId) {
+    console.log(`📥 Descargando Excel desde Google Drive (ID: ${targetFileId})...`);
+    const downloadUrl = `https://docs.google.com/uc?export=download&id=${targetFileId}`;
     await downloadFile(downloadUrl, TEMP_XLSX);
     fileToRead = TEMP_XLSX;
   } else if (fs.existsSync(ROOT_XLSX)) {
     console.log('📂 Usando Propiedades.xlsx local...');
     fileToRead = ROOT_XLSX;
   } else {
-    console.error('❌ ERROR: No se encontró DRIVE_FILE_ID ni el archivo local Propiedades.xlsx.');
+    console.error('❌ ERROR: No se encontró DRIVE_FOLDER_ID, DRIVE_FILE_ID ni el archivo local Propiedades.xlsx.');
     process.exit(1);
   }
 
@@ -127,7 +192,7 @@ async function main() {
   }
 
   if (oldJsonStr.trim() === newJsonStr.trim()) {
-    console.log('✅ No se detectaron cambios en Propiedades.xlsx.');
+    console.log('✅ No se detectaron cambios en el Excel.');
   } else {
     fs.writeFileSync(TARGET_JSON, newJsonStr, 'utf-8');
     console.log(`✨ data.json actualizado correctamente con ${jsonRows.length} propiedades.`);
