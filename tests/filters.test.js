@@ -41,6 +41,7 @@ function filterProperties(list, options = {}) {
     groups = [], // Planificador 1-5 (array of numbers)
     day = '',    // Single Dia planificador
     ofi = '',    // Oficina Broker
+    equipo = '', // Equipo Broker
     op = '',
     type = ''
   } = options;
@@ -63,6 +64,9 @@ function filterProperties(list, options = {}) {
 
     // Oficina Broker filter
     if (ofi && String(item.ofiBroker || '').trim() !== ofi) return false;
+
+    // Equipo Broker filter
+    if (equipo && String(item.equipoBroker || item['Eq Broker '] || '').trim() !== equipo) return false;
 
     if (op && item.mERYr !== op) return false;
     if (type && item.oHoAu !== type) return false;
@@ -92,6 +96,34 @@ const ofiFiltered = filterProperties(rows, { activeOnly: true, ofi: 'Central' })
 assert.ok(ofiFiltered.length > 0, 'Filtering by ofi Central should return properties');
 ofiFiltered.forEach(r => {
   assert.strictEqual(r.ofiBroker, 'Central');
+});
+
+// Test Equipo Broker filter and Alphabetical Sorting
+function getTeamsForOfi(ofiSelected = '') {
+  const teams = new Set();
+  rows.forEach(d => {
+    const ofiVal = String(d.ofiBroker || '').trim();
+    const eqVal = String(d.equipoBroker || d['Eq Broker '] || '').trim();
+    if (eqVal) {
+      if (!ofiSelected || ofiVal === ofiSelected) {
+        teams.add(eqVal);
+      }
+    }
+  });
+  return Array.from(teams).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+}
+
+const allTeams = getTeamsForOfi('');
+assert.ok(allTeams.length > 0, 'Should return all teams when no office is selected');
+// Check alphabetical order
+const isSorted = allTeams.every((val, i, arr) => !i || arr[i - 1].localeCompare(val, 'es', { sensitivity: 'base' }) <= 0);
+assert.ok(isSorted, 'Teams should be sorted alphabetically');
+
+const sampleTeam = allTeams[0];
+const equipoFiltered = filterProperties(rows, { activeOnly: true, equipo: sampleTeam });
+assert.ok(equipoFiltered.length > 0, `Filtering by team ${sampleTeam} should return properties`);
+equipoFiltered.forEach(r => {
+  assert.strictEqual(String(r.equipoBroker || r['Eq Broker '] || '').trim(), sampleTeam);
 });
 
 console.log('✅ ALL FILTER TDD TESTS PASSED SUCCESSFULLY!');

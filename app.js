@@ -253,6 +253,43 @@ function updateAgentDropdown() {
   }
 }
 
+function updateEquipoDropdown() {
+  const ofiSelected = document.getElementById('ofiFilter')?.value || '';
+  const equipoSel = document.getElementById('equipoFilter');
+  if (!equipoSel) return;
+
+  const currentVal = equipoSel.value;
+  const teams = new Set();
+
+  ROWS.forEach(d => {
+    const ofiVal = String(d['ofiBroker'] || d['Ofi BROKER'] || '').trim();
+    const eqVal = String(d['equipoBroker'] || d['Eq Broker '] || d['Equipo Broker'] || '').trim();
+    if (eqVal) {
+      if (!ofiSelected || ofiVal === ofiSelected) {
+        teams.add(eqVal);
+      }
+    }
+  });
+
+  const sortedTeams = Array.from(teams).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+
+  equipoSel.innerHTML = '<option value="">Equipo (todos)</option>';
+  sortedTeams.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t;
+    opt.textContent = t;
+    equipoSel.appendChild(opt);
+  });
+
+  if (currentVal && teams.has(currentVal)) {
+    equipoSel.value = currentVal;
+    equipoSel.classList.add('has-value');
+  } else {
+    equipoSel.value = '';
+    equipoSel.classList.remove('has-value');
+  }
+}
+
 function loadData(text, isUserUpload = false) {
   let json;
   try {
@@ -285,6 +322,7 @@ function loadData(text, isUserUpload = false) {
   populateSelect(document.getElementById('typeFilter'), types, 'Tipo (todos)');
   populateSelect(document.getElementById('zoneFilter'), zones, 'Zona (todas)');
   populateSelect(document.getElementById('ofiFilter'), ofis, 'Oficina Broker (todas)');
+  updateEquipoDropdown();
 
   // Configurar Chips de Día Planificador (selección única con detección automática del día de hoy)
   const dayWrap = document.getElementById('dayChips');
@@ -628,6 +666,7 @@ function currentFiltered() {
   const type = document.getElementById('typeFilter')?.value || '';
   const zone = document.getElementById('zoneFilter')?.value || '';
   const ofi = document.getElementById('ofiFilter')?.value || '';
+  const equipo = document.getElementById('equipoFilter')?.value || '';
   
   const checkedGroups = [...document.querySelectorAll('#groupChecks input:checked')].map(i => String(i.value));
   const activeDayEl = document.querySelector('#dayChips .chip.active input');
@@ -656,6 +695,7 @@ function currentFiltered() {
     if (type && d[FIELD.type] !== type) return false;
     if (zone && d[FIELD.zone] !== zone) return false;
     if (ofi && (d['ofiBroker'] || d['Ofi BROKER'] || '') !== ofi) return false;
+    if (equipo && (d['equipoBroker'] || d['Eq Broker '] || d['Equipo Broker'] || '') !== equipo) return false;
 
     // Filtro de Día Planificador (selección única)
     if (selectedDay) {
@@ -1287,11 +1327,14 @@ document.querySelectorAll('#opSegmentedControl .segment-btn').forEach(btn => {
 });
 
 // Selects con highlight al tener valor seleccionado
-['typeFilter', 'zoneFilter', 'ofiFilter'].forEach(id => {
+['typeFilter', 'zoneFilter', 'ofiFilter', 'equipoFilter'].forEach(id => {
   const sel = document.getElementById(id);
   if (sel) {
     sel.addEventListener('change', () => {
       sel.classList.toggle('has-value', Boolean(sel.value));
+      if (id === 'ofiFilter') {
+        updateEquipoDropdown();
+      }
       render(true);
     });
   }
@@ -1310,13 +1353,14 @@ document.getElementById('resetFiltersBtn')?.addEventListener('click', () => {
   });
 
   // Reset selects
-  ['typeFilter', 'zoneFilter', 'ofiFilter'].forEach(id => {
+  ['typeFilter', 'zoneFilter', 'ofiFilter', 'equipoFilter'].forEach(id => {
     const sel = document.getElementById(id);
     if (sel) {
       sel.value = '';
       sel.classList.remove('has-value');
     }
   });
+  updateEquipoDropdown();
 
   // Reset Días (desmarcar todos)
   const dayWrap = document.getElementById('dayChips');
