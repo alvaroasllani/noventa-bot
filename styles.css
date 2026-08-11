@@ -632,22 +632,42 @@ details[open] summary::after {
   box-shadow: 0 2px 8px var(--accent-glow) !important;
 }
 
-/* 3. Módulo Planificador: Días siempre en 1 sola fila sin desbordar */
+/* 3. Módulo Planificador: Días perfectamente proporcionados en 1 sola fila y Grupos numéricos extendidos */
 .day-pills-track {
   display: flex !important;
   flex-wrap: nowrap !important;
-  overflow-x: auto !important;
   width: 100% !important;
   gap: 4px !important;
-  padding-bottom: 2px;
-  -webkit-overflow-scrolling: touch;
+  align-items: center;
 }
 
 .day-pills-track .chip {
-  flex: 1 0 auto;
-  min-width: 32px;
+  flex: 1 1 0px !important;
+  min-width: 0 !important;
+  padding: 0 2px !important;
+  height: 26px;
+  font-size: 11px;
   text-align: center;
   white-space: nowrap;
+}
+
+.group-pills-track {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  width: 100% !important;
+  gap: 6px !important;
+  margin-top: 4px;
+  align-items: center;
+}
+
+.group-pills-track .chip.chip-num {
+  flex: 1 1 0px !important;
+  min-width: 0 !important;
+  height: 26px;
+  padding: 0 4px !important;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
 }
 
 .select-field-wrapper select {
