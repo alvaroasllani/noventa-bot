@@ -277,7 +277,22 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(() => { });
+        navigator.serviceWorker.register('./sw.js').then(reg => {
+          reg.onupdatefound = () => {
+            const installing = reg.installing;
+            if (installing) {
+              installing.onstatechange = () => {
+                if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+                  const btn = document.getElementById('reloadPageBtn');
+                  if (btn) {
+                    btn.classList.add('has-update');
+                    btn.title = '✨ ¡Nueva versión detectada! Haz clic para recargar la página';
+                  }
+                }
+              };
+            }
+          };
+        }).catch(() => { });
       });
     }
   </script>

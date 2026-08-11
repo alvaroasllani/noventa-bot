@@ -1,4 +1,4 @@
-const CACHE_NAME = 'descargadornova-v4';
+const CACHE_NAME = 'descargadornova-v5';
 const ASSETS = [
   './',
   './index.html',
@@ -10,10 +10,10 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
+  self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (e) => {
@@ -33,34 +33,20 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
 
-  // Network-first strategy for data.json or update checks to detect pushes immediately
-  if (url.pathname.endsWith('data.json') || url.search.includes('v=')) {
-    e.respondWith(
-      fetch(e.request)
-        .then((res) => {
-          if (res.status === 200) {
-            const cacheCopy = res.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(e.request, cacheCopy));
-          }
-          return res;
-        })
-        .catch(() => caches.match(e.request))
-    );
-    return;
-  }
+  // Skip cross-origin chrome-extension or external analytics
+  if (!url.origin.includes(self.location.hostname)) return;
 
+  // Network-First strategy: Siempre busca la versión más reciente en la red (GitHub/Vercel)
+  // Si está offline, sirve la copia en caché de respaldo.
   e.respondWith(
-    caches.match(e.request).then((cached) => {
-      const networked = fetch(e.request)
-        .then((res) => {
-          if (res.status === 200) {
-            const cacheCopy = res.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(e.request, cacheCopy));
-          }
-          return res;
-        })
-        .catch(() => cached);
-      return cached || networked;
-    })
+    fetch(e.request)
+      .then((res) => {
+        if (res.status === 200) {
+          const cacheCopy = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, cacheCopy));
+        }
+        return res;
+      })
+      .catch(() => caches.match(e.request))
   );
 });
