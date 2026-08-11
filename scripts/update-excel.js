@@ -4,7 +4,7 @@ const https = require('https');
 const XLSX = require('xlsx');
 
 const DRIVE_FILE_ID = process.env.DRIVE_FILE_ID || '';
-const DRIVE_FOLDER_ID = process.env.DRIVE_FOLDER_ID || '';
+const DRIVE_FOLDER_ID = process.env.DRIVE_FOLDER_ID || '1kJ942NqV1rspy9e-b11J4gihD_P6qyjC';
 const DRIVE_API_KEY = process.env.DRIVE_API_KEY || '';
 
 const ROOT_XLSX = path.join(__dirname, '..', 'Propiedades.xlsx');
@@ -13,7 +13,7 @@ const TARGET_JSON = path.join(__dirname, '..', 'data.json');
 
 function fetchText(url) {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, res => {
+    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }, res => {
       if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 303) {
         return fetchText(res.headers.location).then(resolve).catch(reject);
       }
@@ -64,19 +64,46 @@ async function getLatestFileIdFromFolder(folderId, apiKey) {
   }
 
   try {
-    const embedUrl = `https://drive.google.com/embeddedfolderview?id=${folderId}`;
+    const embedUrl = `https://drive.google.com/drive/folders/${folderId}`;
     const html = await fetchText(embedUrl);
-    const matches = [...html.matchAll(/id="entry-([^"]+)"[\s\S]*?<div class="name" title="([^"]+)"[\s\S]*?<div class="date" title="([^"]+)"/g)];
-    if (matches.length > 0) {
-      const files = matches.map(m => ({ id: m[1], name: m[2], dateStr: m[3] }));
-      const xlsxFiles = files.filter(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls') || !f.name.includes('.'));
-      if (xlsxFiles.length > 0) {
-        console.log(`📌 Archivo más reciente en carpeta pública: ${xlsxFiles[0].name}`);
-        return xlsxFiles[0].id;
+    const allIds = [...new Set([...html.matchAll(/"([a-zA-Z0-9_-]{33})"/g)].map(m => m[1]))].filter(id => id !== folderId);
+    
+    if (allIds.length > 0) {
+      console.log(`🔍 Se encontraron ${allIds.length} archivos en la carpeta de Drive. Evaluando fechas de modificación...`);
+      const fileInfos = await Promise.all(allIds.map(async id => {
+        try {
+          const downloadUrl = `https://docs.google.com/uc?export=download&id=${id}`;
+          const headRes = await new Promise(resolve => {
+            https.get(downloadUrl, { method: 'HEAD', headers: { 'User-Agent': 'Mozilla/5.0' } }, res => {
+              if (res.statusCode === 302 || res.statusCode === 301 || res.statusCode === 303) {
+                https.get(res.headers.location, { method: 'HEAD' }, res2 => {
+                  resolve({
+                    id,
+                    lm: res2.headers['last-modified'] ? new Date(res2.headers['last-modified']).getTime() : 0
+                  });
+                }).on('error', () => resolve({ id, lm: 0 }));
+              } else {
+                resolve({
+                  id,
+                  lm: res.headers['last-modified'] ? new Date(res.headers['last-modified']).getTime() : 0
+                });
+              }
+            }).on('error', () => resolve({ id, lm: 0 }));
+          });
+          return headRes;
+        } catch (e) {
+          return { id, lm: 0 };
+        }
+      }));
+
+      fileInfos.sort((a, b) => b.lm - a.lm);
+      if (fileInfos[0] && fileInfos[0].id) {
+        console.log(`📌 Seleccionado archivo más reciente (ID: ${fileInfos[0].id}, Fecha: ${new Date(fileInfos[0].lm).toISOString()})`);
+        return fileInfos[0].id;
       }
     }
   } catch (e) {
-    console.log('⚠️ No se pudo obtener la lista vía vista pública de carpeta:', e.message);
+    console.log('⚠️ No se pudo obtener la lista vía vista de carpeta:', e.message);
   }
 
   return '';
