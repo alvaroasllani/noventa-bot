@@ -45,10 +45,15 @@ const FIELD = {
   cover: '0C9DE',
   photos: '7fYNu',
   day: 'a6X7r',        // día programado de publicación (ej. "Domingo")
+  diaPlanificador: 'diaPlanificador',
   status: 'TieEY',     // estado (ej. "Abierta")
   group: 'UZGXo',      // grupo del Planificador (1-5, checkboxes en la app)
+  planificador: 'planificador',
   active: '34Af3',     // publicado / activo ("si" vs "no")
   agent: 'PJe5x',      // Asesor / Supervisor responsable
+  cargo: 'Cargo',
+  ofiBroker: 'ofiBroker',
+  equipoBroker: 'equipoBroker',
   catalog: 'vDBia',    // Texto catálogo de la propiedad
   facebook: 'abzcW'    // Texto Facebook de la propiedad
 };
@@ -115,6 +120,7 @@ function parsePhotos(str) {
 }
 
 function populateSelect(sel, values, placeholder) {
+  if (!sel) return;
   const cur = sel.value;
   sel.innerHTML = `<option value="">${placeholder}</option>`;
   [...values].sort().forEach(v => {
@@ -259,42 +265,80 @@ function loadData(text, isUserUpload = false) {
   ROWS = (Array.isArray(rows) ? rows : []).map(r => r.data || r).filter(d => d && d[FIELD.op]);
 
   document.getElementById('filtersCard').style.display = 'block';
+  document.getElementById('opSegmentedBar').style.display = 'flex';
   document.getElementById('toolbar').style.display = 'flex';
   document.getElementById('hint').style.display = 'block';
 
-  const ops = new Set(), types = new Set(), zones = new Set(), days = new Set(), statuses = new Set();
+  const ops = new Set(), types = new Set(), zones = new Set(), days = new Set(), statuses = new Set(), ofis = new Set();
   ROWS.forEach(d => {
     if (d[FIELD.op]) ops.add(d[FIELD.op]);
     if (d[FIELD.type]) types.add(d[FIELD.type]);
     if (d[FIELD.zone]) zones.add(d[FIELD.zone]);
-    if (d[FIELD.day]) days.add(d[FIELD.day]);
+    const dayVal = d['diaPlanificador'] || d[FIELD.day];
+    if (dayVal) days.add(dayVal);
     if (d[FIELD.status]) statuses.add(d[FIELD.status]);
+    const ofiVal = d['ofiBroker'] || d['Ofi BROKER'];
+    if (ofiVal) ofis.add(ofiVal);
   });
+
   populateSelect(document.getElementById('opFilter'), ops, 'Operación (todas)');
   populateSelect(document.getElementById('typeFilter'), types, 'Tipo (todos)');
   populateSelect(document.getElementById('zoneFilter'), zones, 'Zona (todas)');
-  populateSelect(document.getElementById('dayFilter'), days, 'Día de publicación (todos)');
-  populateSelect(document.getElementById('statusFilter'), statuses, 'Estado (todos)');
-  updateAgentDropdown();
+  populateSelect(document.getElementById('ofiFilter'), ofis, 'Oficina Broker (todas)');
 
-  const groupWrap = document.getElementById('groupChecks');
-  groupWrap.innerHTML = '';
-  [1, 2, 3, 4, 5].forEach(n => {
-    const label = document.createElement('label');
-    label.className = 'chip';
-    label.innerHTML = `<input type="checkbox" value="${n}"> ${n}`;
-    label.querySelector('input').addEventListener('change', (e) => {
-      label.classList.toggle('active', e.target.checked);
-      render();
+  // Configurar Chips de Día Planificador (selección única con detección automática del día de hoy)
+  const dayWrap = document.getElementById('dayChips');
+  if (dayWrap) {
+    dayWrap.innerHTML = '';
+    const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const todayName = dayNames[new Date().getDay()];
+    const shortNames = { 'Lunes': 'Lun', 'Martes': 'Mar', 'Miércoles': 'Mié', 'Jueves': 'Jue', 'Viernes': 'Vie', 'Sábado': 'Sáb', 'Domingo': 'Dom' };
+
+    ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].forEach(dayName => {
+      const label = document.createElement('label');
+      const shortText = shortNames[dayName] || dayName;
+      label.className = 'chip';
+      label.title = dayName;
+      label.innerHTML = `<input type="radio" name="dayChipRadio" value="${dayName}"> ${shortText}`;
+      
+      label.addEventListener('click', (e) => {
+        e.preventDefault();
+        const radio = label.querySelector('input');
+        const wasChecked = label.classList.contains('active');
+
+        // Desmarcar todos los demás
+        dayWrap.querySelectorAll('.chip').forEach(c => {
+          c.classList.remove('active');
+          c.querySelector('input').checked = false;
+        });
+
+        if (!wasChecked) {
+          label.classList.add('active');
+          radio.checked = true;
+        }
+        render(true);
+      });
+      dayWrap.appendChild(label);
     });
-    groupWrap.appendChild(label);
-  });
+  }
 
-  const todayName = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][new Date().getDay()];
-  if (days.has(todayName)) document.getElementById('dayFilter').value = todayName;
-  if (statuses.has('Abierta')) document.getElementById('statusFilter').value = 'Abierta';
+  // Configurar Chips de Grupo Planificador (1 al 5 - multiselección, solo números)
+  const groupWrap = document.getElementById('groupChecks');
+  if (groupWrap) {
+    groupWrap.innerHTML = '';
+    [1, 2, 3, 4, 5].forEach(n => {
+      const label = document.createElement('label');
+      label.className = 'chip chip-num';
+      label.innerHTML = `<input type="checkbox" value="${n}"> ${n}`;
+      label.querySelector('input').addEventListener('change', (e) => {
+        label.classList.toggle('active', e.target.checked);
+        render(true);
+      });
+      groupWrap.appendChild(label);
+    });
+  }
 
-  render();
+  render(true);
   return true;
 }
 
@@ -421,32 +465,56 @@ async function handleUserFileUpload(file) {
 
         const PREFIX_OP = { ALQ: 'ALQUILER', VEN: 'VENTA', PREV: 'PREVENTA', ANT: 'ANTICRETICO', ENTR: 'ENTREGA INMEDIATA', PROF: 'PROF / LOCAL' };
         const jsonRows = rawExcel.map(r => {
-          const code = String(r['Ncodigo'] || '').trim();
+          const getVal = (...names) => {
+            const keys = Object.keys(r);
+            for (const n of names) {
+              const target = n.trim().toLowerCase();
+              const found = keys.find(k => k.trim().toLowerCase() === target);
+              if (found && r[found] !== undefined && r[found] !== null) return String(r[found]).trim();
+            }
+            return '';
+          };
+          const code = getVal('Ncodigo', 'ncodigo', 'Codigo');
           const m = code.match(/^([A-Z]+)(\d+)$/);
           const prefix = m ? m[1] : '';
           const num = m ? parseInt(m[2], 10) : '';
           const op = PREFIX_OP[prefix] || 'VENTA';
-          const imgs = String(r['TempImg'] || '').split(',').map(s => s.trim()).filter(Boolean);
+          const tempImgRaw = getVal('TempImg', 'tempimg', 'Imagenes');
+          const imgs = tempImgRaw.split(',').map(s => s.trim()).filter(Boolean);
           const cover = imgs[0] || '';
           const gallery = imgs.slice(1).join(', ');
-          const cargo = String(r['Cargo'] || '').trim();
+          const cargo = getVal('Cargo', 'cargo');
           const isEx = /^ex/i.test(cargo);
-          const isAvailable = String(r['DISPONIBLE'] || '').trim().toLowerCase() === 'si' && !isEx;
+          const disponible = getVal('DISPONIBLE', 'disponible');
+          const isAvailable = disponible.toLowerCase() === 'si' && !isEx;
+
+          const ofiBroker = getVal('Ofi BROKER', 'ofi broker', 'Oficina Broker', 'Oficina');
+          const planificadorRaw = getVal('Planificador', 'planificador');
+          const planificador = planificadorRaw ? parseInt(planificadorRaw, 10) || planificadorRaw : '';
+          const diaPlanificador = getVal('Dia planificador', 'dia planificador', 'Dia');
+          const equipoBroker = getVal('Eq Broker ', 'eq broker', 'equipo broker', 'Equipo Broker');
 
           return {
             data: {
               mERYr: op,
-              oHoAu: r['Tipo'] || '',
-              WIoeb: r['Zona'] || '',
-              '5kIsO': r['Propiedad'] || '',
-              GRkSW: r['preciofinal'] || '',
+              oHoAu: getVal('Tipo', 'tipo'),
+              WIoeb: getVal('Zona', 'zona'),
+              '5kIsO': getVal('Propiedad', 'propiedad'),
+              GRkSW: getVal('preciofinal', 'precio final'),
               lak0f: num,
               '0C9DE': cover,
               '7fYNu': gallery,
               '34Af3': isAvailable ? 'si' : 'no',
-              vDBia: r['Txt Catalogo'] || r['Txt Facebook'] || '',
-              abzcW: r['Txt Facebook'] || r['Txt Catalogo'] || '',
-              PJe5x: cargo ? (isEx ? `Ex (${cargo})` : cargo) : ''
+              vDBia: getVal('Txt Catalogo', 'txt catalogo') || getVal('Txt Facebook', 'txt facebook'),
+              abzcW: getVal('Txt Facebook', 'txt facebook') || getVal('Txt Catalogo', 'txt catalogo'),
+              PJe5x: cargo ? (isEx ? `Ex (${cargo})` : cargo) : '',
+              Cargo: cargo,
+              ofiBroker: ofiBroker,
+              planificador: planificador,
+              UZGXo: planificador,
+              diaPlanificador: diaPlanificador,
+              a6X7r: diaPlanificador,
+              equipoBroker: equipoBroker
             }
           };
         });
@@ -555,50 +623,55 @@ function currentFiltered() {
   }
 
   const search = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
-  const active = document.getElementById('activeFilter')?.value || 'si';
-  const op = document.getElementById('opFilter').value;
-  const type = document.getElementById('typeFilter').value;
-  const zone = document.getElementById('zoneFilter').value;
-  const day = document.getElementById('dayFilter').value;
-  const status = document.getElementById('statusFilter').value;
-  const agent = document.getElementById('agentFilter')?.value || '';
+  const activeOpBtn = document.querySelector('#opSegmentedControl .segment-btn.active');
+  const op = activeOpBtn ? (activeOpBtn.dataset.op || '') : (document.getElementById('opFilter')?.value || '');
+  const type = document.getElementById('typeFilter')?.value || '';
+  const zone = document.getElementById('zoneFilter')?.value || '';
+  const ofi = document.getElementById('ofiFilter')?.value || '';
+  
   const checkedGroups = [...document.querySelectorAll('#groupChecks input:checked')].map(i => String(i.value));
-
-  const onlyActiveAgents = document.getElementById('onlyActiveAgentsCheck')?.checked ?? true;
+  const activeDayEl = document.querySelector('#dayChips .chip.active input');
+  const selectedDay = activeDayEl ? activeDayEl.value : '';
 
   return ROWS.filter(d => {
     const code = codeFor(d).toLowerCase();
     const title = (d[FIELD.title] || '').toLowerCase();
-    const rowAgents = [d['Lt6BS'], d[FIELD.agent], d['Pverj'], d['bF4oQ']].map(a => (a || '').trim()).filter(Boolean);
+    const zoneVal = (d[FIELD.zone] || '').toLowerCase();
+    const cargo = String(d['Cargo'] || d[FIELD.agent] || '').trim();
+    const isExCargo = /^ex/i.test(cargo);
 
     if (search) {
-      if (!code.includes(search) && !title.includes(search)) return false;
+      if (!code.includes(search) && !title.includes(search) && !zoneVal.includes(search)) return false;
       return true;
     }
 
-    if (active === 'si' && d[FIELD.active] && String(d[FIELD.active]).toLowerCase() === 'no') return false;
-    if (active === 'no' && String(d[FIELD.active]).toLowerCase() !== 'no') return false;
+    // Regla obligatoria: Solo disponibles (DISPONIBLE == "Si" y Cargo != "EX")
+    const isActivePub = d[FIELD.active] && String(d[FIELD.active]).toLowerCase() === 'si';
+    if (!isActivePub || isExCargo) return false;
 
-    // Exclude properties of EX agents when only active agents/publications are desired
-    if (onlyActiveAgents && rowAgents.some(a => isExAgent(a))) return false;
+    // Regla obligatoria: Excluir cerradas
+    if (d[FIELD.status] === 'Cerrada') return false;
 
     if (op && d[FIELD.op] !== op) return false;
     if (type && d[FIELD.type] !== type) return false;
     if (zone && d[FIELD.zone] !== zone) return false;
-    if (day && d[FIELD.day] !== day) return false;
-    if (status) {
-      if (d[FIELD.status] !== status) return false;
-    } else {
-      if (d[FIELD.status] === 'Cerrada') return false;
-    }
-    if (agent && !rowAgents.includes(agent)) return false;
+    if (ofi && (d['ofiBroker'] || d['Ofi BROKER'] || '') !== ofi) return false;
 
-    if (checkedGroups.length) {
-      const val = d[FIELD.group];
+    // Filtro de Día Planificador (selección única)
+    if (selectedDay) {
+      const dayVal = String(d['diaPlanificador'] || d[FIELD.day] || d['a6X7r'] || '').trim();
+      if (dayVal !== selectedDay) return false;
+    }
+
+    // Filtro de Grupo Planificador (1 al 5 - multiselección)
+    if (checkedGroups.length > 0) {
+      const val = d['planificador'] ?? d[FIELD.group] ?? d['UZGXo'];
       if (val !== undefined && val !== null && val !== '') {
         const strVal = String(val);
         const isMatch = checkedGroups.some(g => strVal.includes(g));
         if (!isMatch) return false;
+      } else {
+        return false;
       }
     }
 
@@ -929,13 +1002,22 @@ function render(resetPagination = false) {
     const thumbId = displayPhotos[0] || photoList[0] || '';
     const count = displayPhotos.length;
 
+    const ofi = d['ofiBroker'] || d['Ofi BROKER'] || '';
+    const equipo = d['equipoBroker'] || d['Eq Broker '] || d['equipo broker'] || '';
+    const planGroup = d['planificador'] ?? d[FIELD.group] ?? d['UZGXo'];
+    const planDay = d['diaPlanificador'] || d[FIELD.day] || d['a6X7r'] || '';
+
     const el = document.createElement('div');
     el.className = 'obj';
     el.innerHTML = `
       <div class="obj-head">
         <div class="obj-thumb" style="background-image:url('${thumbId ? driveThumbUrl(thumbId) : ''}')"></div>
         <div class="obj-info">
-          <div class="obj-code">${codeFor(d)} <span class="badge">${d[FIELD.type] || ''}</span></div>
+          <div class="obj-code">
+            ${codeFor(d)} 
+            <span class="badge">${d[FIELD.type] || ''}</span>
+            ${ofi ? `<span class="badge badge-ofi">🏢 ${ofi}</span>` : ''}
+          </div>
           <div class="obj-title">${(d[FIELD.title] || 'Sin título').trim()}</div>
           <div class="obj-meta">${d[FIELD.zone] || ''} · ${d[FIELD.currency] || ''} ${d[FIELD.price] ?? ''} · ${count} foto${count === 1 ? '' : 's'}</div>
         </div>
@@ -1139,71 +1221,150 @@ function debounce(func, wait = 150) {
   };
 }
 
-document.getElementById('cancelDownloadBtn').addEventListener('click', () => {
+document.getElementById('cancelDownloadBtn')?.addEventListener('click', () => {
   if (confirm('¿Deseas cancelar la descarga masiva en curso?')) {
     CANCEL_DOWNLOADING_ALL = true;
     IS_PAUSED_ALL = false;
   }
 });
 
-document.getElementById('pasteInput').addEventListener('input', debounce(() => render(true), 180));
-document.getElementById('pasteClipboardBtn').addEventListener('click', async () => {
+document.getElementById('pasteInput')?.addEventListener('input', debounce(() => render(true), 180));
+document.getElementById('pasteClipboardBtn')?.addEventListener('click', async () => {
   try {
     const text = await navigator.clipboard.readText();
     if (text) {
-      document.getElementById('pasteInput').value = text;
+      const input = document.getElementById('pasteInput');
+      if (input) input.value = text;
       render(true);
     } else {
       alert('El portapapeles está vacío.');
     }
   } catch (err) {
     const textarea = document.getElementById('pasteInput');
-    textarea.focus();
+    if (textarea) textarea.focus();
     alert('Por favor mantén presionado el cuadro de texto para pegar.');
   }
 });
 
-document.getElementById('clearPasteBtn').addEventListener('click', () => {
-  document.getElementById('pasteInput').value = '';
+document.getElementById('clearPasteBtn')?.addEventListener('click', () => {
+  const input = document.getElementById('pasteInput');
+  if (input) input.value = '';
   render(true);
 });
 
-document.getElementById('pasteInput').value = '';
+const pasteInputEl = document.getElementById('pasteInput');
+if (pasteInputEl) pasteInputEl.value = '';
 
-document.getElementById('searchInput').addEventListener('input', debounce(() => render(true), 180));
-document.getElementById('activeFilter').addEventListener('change', () => render(true));
-document.getElementById('opFilter').addEventListener('change', () => render(true));
-document.getElementById('typeFilter').addEventListener('change', () => render(true));
-document.getElementById('zoneFilter').addEventListener('change', () => render(true));
-document.getElementById('dayFilter').addEventListener('change', () => render(true));
-document.getElementById('statusFilter').addEventListener('change', () => render(true));
-document.getElementById('agentFilter').addEventListener('change', () => render(true));
+const searchInputEl = document.getElementById('searchInput');
+const clearSearchBtn = document.getElementById('clearSearchInputBtn');
+
+if (searchInputEl) {
+  searchInputEl.addEventListener('input', () => {
+    if (clearSearchBtn) {
+      clearSearchBtn.style.display = searchInputEl.value.trim() ? 'inline-flex' : 'none';
+    }
+    debounce(() => render(true), 180)();
+  });
+}
+
+if (clearSearchBtn) {
+  clearSearchBtn.addEventListener('click', () => {
+    if (searchInputEl) {
+      searchInputEl.value = '';
+      clearSearchBtn.style.display = 'none';
+      render(true);
+    }
+  });
+}
+
+// Segmented Control de Operación
+document.querySelectorAll('#opSegmentedControl .segment-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#opSegmentedControl .segment-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    render(true);
+  });
+});
+
+// Selects con highlight al tener valor seleccionado
+['typeFilter', 'zoneFilter', 'ofiFilter'].forEach(id => {
+  const sel = document.getElementById(id);
+  if (sel) {
+    sel.addEventListener('change', () => {
+      sel.classList.toggle('has-value', Boolean(sel.value));
+      render(true);
+    });
+  }
+});
+
+// Botón Restablecer Filtros
+document.getElementById('resetFiltersBtn')?.addEventListener('click', () => {
+  if (searchInputEl) {
+    searchInputEl.value = '';
+    if (clearSearchBtn) clearSearchBtn.style.display = 'none';
+  }
+  
+  // Segmented control op -> "Todas"
+  document.querySelectorAll('#opSegmentedControl .segment-btn').forEach(b => {
+    b.classList.toggle('active', (b.dataset.op || '') === '');
+  });
+
+  // Reset selects
+  ['typeFilter', 'zoneFilter', 'ofiFilter'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (sel) {
+      sel.value = '';
+      sel.classList.remove('has-value');
+    }
+  });
+
+  // Reset Días (desmarcar todos)
+  const dayWrap = document.getElementById('dayChips');
+  if (dayWrap) {
+    dayWrap.querySelectorAll('.chip').forEach(c => {
+      c.classList.remove('active');
+      const radio = c.querySelector('input');
+      if (radio) radio.checked = false;
+    });
+  }
+
+  // Reset Grupos (desmarcar todos)
+  const groupWrap = document.getElementById('groupChecks');
+  if (groupWrap) {
+    groupWrap.querySelectorAll('.chip').forEach(c => {
+      c.classList.remove('active');
+      const chk = c.querySelector('input');
+      if (chk) chk.checked = false;
+    });
+  }
+
+  render(true);
+});
+
 document.getElementById('maxPhotosSelect')?.addEventListener('change', () => render(false));
-document.getElementById('onlyActiveAgentsCheck')?.addEventListener('change', () => {
-  updateAgentDropdown();
-  render(true);
-});
-document.getElementById('downloadAllBtn').addEventListener('click', downloadAllFiltered);
+document.getElementById('downloadAllBtn')?.addEventListener('click', downloadAllFiltered);
 
 const drop = document.getElementById('drop');
 const fileInput = document.getElementById('fileInput');
-drop.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', (e) => {
-  const f = e.target.files[0];
-  if (f) handleUserFileUpload(f);
-});
-['dragover', 'dragleave', 'drop'].forEach(evt => {
-  drop.addEventListener(evt, e => {
-    e.preventDefault();
-    drop.classList.toggle('dragover', evt === 'dragover');
+if (drop && fileInput) {
+  drop.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    const f = e.target.files[0];
+    if (f) handleUserFileUpload(f);
   });
-});
-drop.addEventListener('drop', e => {
-  const f = e.dataTransfer.files[0];
-  if (f) handleUserFileUpload(f);
-});
+  ['dragover', 'dragleave', 'drop'].forEach(evt => {
+    drop.addEventListener(evt, e => {
+      e.preventDefault();
+      drop.classList.toggle('dragover', evt === 'dragover');
+    });
+  });
+  drop.addEventListener('drop', e => {
+    const f = e.dataTransfer.files[0];
+    if (f) handleUserFileUpload(f);
+  });
+}
 
-document.getElementById('resetDataBtn').addEventListener('click', async () => {
+document.getElementById('resetDataBtn')?.addEventListener('click', async () => {
   if (confirm('¿Restablecer al data.json por defecto del servidor?')) {
     await clearStoredData();
     fetchDefaultData();

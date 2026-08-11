@@ -19,7 +19,9 @@ unsolicited code dumps before he's ready to implement.
 
 The tool works end-to-end for both:
 1. **Pasted List Workflow (Primary):** User pastes text containing titles/codes copied from the app or WhatsApp. Regex extracts valid codes, matches them against `data.json`, and displays photo cards in exact order.
-2. **Manual Filter Workflow (Hidden by default):** Collapsible panel supporting filtering by Day, Status, Operation, Property Type, Zone, Active/Published status, Agent (`PJe5x`/`Lt6BS`), and Planificador group checkboxes (`UZGXo` 1-5). Hidden in UI by default to focus on the pasted list workflow.
+2. **Manual Filter Workflow (Reactivated & Enhanced):** Visible collapsible panel supporting multi-select for Día Planificador, multi-select for Planificador group (1-5), Oficina Broker dropdown (`ofiBroker`), Status, Operation, Property Type, Zone, Active/Published status, and Agent.
+3. **Data Display:** Displays `Oficina Broker`, `Planificador / Día` and `Equipo Broker` (`equipoBroker`) as informative badges on property cards (note: `Equipo Broker` is displayed as data only, no filtering by team).
+4. **Automated Synchronization:** GitHub Actions runs 15 times/day (`.github/workflows/sync-excel.yml`), downloading the latest spreadsheet from Google Drive (regardless of filename on Drive, e.g. `11082026.xlsx`) and updating `data.json`.
 
 ## How the source app works (reverse-engineered, not documented anywhere)
 
@@ -28,21 +30,13 @@ The tool works end-to-end for both:
   (`channel?VER=8&database=...`).
 - Separately, Glide pre-bakes the **entire table** as a static JSON blob and
   hosts it on GCS with a **signed URL** (filename pattern: `<hash>.jzon?GoogleAccessId=...`).
-  This is the file we actually use — full dataset, no need to intercept the
-  WebChannel.
-- The signed URL **expires** (unknown TTL — not measured). The only confirmed
-  method to get a fresh copy:
-  1. Open the app in desktop Chrome
-  2. DevTools → Network → Fetch/XHR filter
-  3. Navigate inside the app (forces a data reload)
-  4. Find the multi-MB request ending in `.jzon`
-  5. Right-click → Copy → Copy response → save as `data.json`
+- In addition, Excel files uploaded or exported from Google Drive containing columns like `Ofi BROKER`, `Planificador`, `Dia planificador`, `Cargo`, and `Eq Broker ` are parsed and normalized by `scripts/update-excel.js`.
 
-## Data schema (`data.json` / the `.jzon` file)
+## Data schema (`data.json` / the `.jzon` / Excel file)
 
-Shape: `{"rows": [{"id": "...", "data": {...}}, ...]}`, ~1994 rows in sample, ~9MB.
+Shape: `{"rows": [{"id": "...", "data": {...}}, ...]}`, ~2017 rows in sample.
 
-Obfuscated 5-character keys (Glide column IDs):
+Key mapping & column definitions:
 
 ```
 mERYr  → operation type: ALQUILER | VENTA | PREVENTA | ANTICRETICO |
@@ -58,23 +52,17 @@ UOFib  → currency ("Bs." / "$us.")                                   [CONFIRME
 lak0f  → numeric code, combine with prefix derived from mERYr        [CONFIRMED]
          to form visible code (e.g. lak0f=809, mERYr=ALQUILER → "ALQ809")
 0C9DE  → cover photo, Drive "view" URL (Photo #1)                    [CONFIRMED]
-7fYNu, P0E5J, RiqQn → carousel photos (Glide creates separate fields [CONFIRMED]
-         or comma-separated lists across columns)
-34Af3  → published in app ("si" | "no"). THIS is the field that       [CONFIRMED]
-         determines visibility in Glide. If 34Af3="si", the property
-         appears in the app regardless of TieEY or agent status.
+7fYNu  → carousel photos (comma-separated Drive URLs)               [CONFIRMED]
+34Af3  → published/available in app ("si" | "no").
+         Condition: DISPONIBLE == "si" AND Cargo != "EX".
+vDBia  → long description / catalog text (#ALQ809)                   [CONFIRMED]
 abzcW  → Facebook post text for the property                         [CONFIRMED]
-vDBia  → long description / catalog text, has hashtag (#ALQ809)      [CONFIRMED]
-a6X7r  → scheduled publish day ("Domingo", "Martes"...)              [CONFIRMED]
-TieEY  → internal status ("Abierta" | "Cerrada" | undefined).        [CONFIRMED]
-         ⚠️ NOT the same as 34Af3. A property can be 34Af3="si"
-         (visible in app) AND TieEY="Cerrada" at the same time.
-         The photo downloader uses TieEY for its own filters, but
-         generar_sheet.js must NOT filter by TieEY.
-UZGXo  → integer 1-5, Planificador filter group checkbox           [CONFIRMED]
-PJe5x / Lt6BS → Agent / Supervisor name                              [CONFIRMED]
-Pverj / bF4oQ → additional agent fields (3rd/4th agent)              [CONFIRMED]
-2Smy9  → full Drive folder URL for the object (backup/unused)        [CONFIRMED]
+ofiBroker → Oficina Broker ("Central", "Sharks", "One", "Tempo")    [CONFIRMED]
+planificador / UZGXo → Planificador group integer 1-5               [CONFIRMED]
+diaPlanificador / a6X7r → Planificador day ("Lunes" ... "Domingo")  [CONFIRMED]
+equipoBroker → Equipo Broker ("Central", "Omega", "Eagles", etc.)   [CONFIRMED]
+Cargo  → Agent cargo ("Asesor", "Ex", etc.)                         [CONFIRMED]
+PJe5x  → Agent / Supervisor name                                    [CONFIRMED]
 ```
 
 Code prefix table (derived from `mERYr` + `lak0f`):
@@ -93,7 +81,7 @@ PROF / LOCAL       → PROF
 ### 1. "Pasted List" & "Planificador" matching (RESOLVED)
 - Text list parser regex: `/\b(ALQ|VEN|PREV|ANT|ENTR|PROF)\s*#?\s*(\d+)\b/gi` extracts official codes while ignoring Spanish words like "DE 4" or "DE 2".
 - Row matching checks `codeFor(d)`, row strings, and raw `lak0f` numbers.
-- If a pasted code is missing from `data.json` (e.g. newly published property), it explicitly warns: `⚠️ No está en tu data.json: ALQ853`.
+- Multi-select chips for Planificador groups (1-5) and Día Planificador (Lunes-Domingo) allow granular or multi-day filtering.
 
 ### 2. Photo extraction (RESOLVED)
 - Glide stores photos in multiple columns (`0C9DE`, `7fYNu`, `P0E5J`, `RiqQn`, etc.).
@@ -124,7 +112,10 @@ one tab per operation type, for Facebook publishing workflow.
 ## File locations
 
 - `index.html` / `app.js` / `styles.css` — photo downloader tool (web app)
-- `data.json` — local dataset (copy of Glide's `.jzon`)
+- `data.json` — local dataset (copy of Glide's `.jzon` / Drive Excel)
+- `scripts/update-excel.js` — node script for Google Drive sync & Excel parsing
+- `.github/workflows/sync-excel.yml` — 15x/day automated sync workflow
+- `tests/filters.test.js` — TDD test suite for filter rules and column extraction
 - `generar_sheet.js` — generates `novahaus_sheet.xlsx` for Facebook publishing
 - `novahaus_sheet.xlsx` — generated output, 6 tabs, all published properties
 - `resumen.txt` — summary report from last sheet generation

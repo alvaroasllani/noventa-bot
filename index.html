@@ -13,7 +13,9 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 
@@ -32,25 +34,28 @@
 
       <div class="header-actions" style="display:flex;align-items:center;gap:8px;">
         <button id="reloadPageBtn" class="icon-btn" aria-label="Recargar página" title="Recargar página">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="23 4 23 10 17 10"/>
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10" />
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
           </svg>
         </button>
         <button id="themeToggleBtn" class="theme-btn" aria-label="Cambiar tema">
-          <svg id="sunIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
-            <circle cx="12" cy="12" r="5"/>
-            <line x1="12" y1="1" x2="12" y2="3"/>
-            <line x1="12" y1="21" x2="12" y2="23"/>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-            <line x1="1" y1="12" x2="3" y2="12"/>
-            <line x1="21" y1="12" x2="23" y2="12"/>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          <svg id="sunIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+            <circle cx="12" cy="12" r="5" />
+            <line x1="12" y1="1" x2="12" y2="3" />
+            <line x1="12" y1="21" x2="12" y2="23" />
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+            <line x1="1" y1="12" x2="3" y2="12" />
+            <line x1="21" y1="12" x2="23" y2="12" />
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
           </svg>
-          <svg id="moonIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          <svg id="moonIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
           </svg>
           <span id="themeLabel">Oscuro</span>
         </button>
@@ -62,20 +67,22 @@
     <div class="card" style="padding: 12px 14px; display: none;">
       <details id="uploadDetails">
         <summary style="font-size:13.5px;font-weight:600;display:flex;align-items:center;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="17 8 12 3 7 8"/>
-            <line x1="12" y1="3" x2="12" y2="15"/>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
           </svg>
           <span>Subir Propiedades.xlsx (opcional)</span>
         </summary>
         <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
           <div class="drop" id="drop" style="padding: 16px 12px;">
             <div class="drop-icon" style="width:32px;height:32px;margin-bottom:6px;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" y1="3" x2="12" y2="15"/>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
               </svg>
             </div>
             <strong style="font-size:13.5px;">Seleccionar Propiedades.xlsx</strong>
@@ -84,92 +91,134 @@
         </div>
       </details>
       <input type="file" id="fileInput" accept=".xlsx,.xls,.json,.txt">
-      <div class="stat-line" id="fileStat" style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <div class="stat-line" id="fileStat"
+        style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
         <span id="fileStatText">⌛ Cargando datos...</span>
-        <button id="resetDataBtn" class="btn btn-ghost btn-sm" style="display:none;padding:3px 8px;font-size:11px;min-height:26px;">Restablecer al original</button>
+        <button id="resetDataBtn" class="btn btn-ghost btn-sm"
+          style="display:none;padding:3px 8px;font-size:11px;min-height:26px;">Restablecer al original</button>
       </div>
     </div>
 
-    <div class="card" id="filtersCard" style="display:none">
-      <div class="paste-box">
-        <div class="paste-header">
-          <div class="paste-title">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-              <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+    <div class="card bento-filter-card" id="filtersCard" style="display:none">
+      <!-- 1. Módulo Superior: Entrada Masiva de Lista (Siempre visible y compacto) -->
+      <div id="massImportBox" class="mass-import-card">
+        <div class="mass-import-header">
+          <div class="mass-import-header-left">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" class="accordion-icon">
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+              <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
             </svg>
-            <span>Pegar lista de publicaciones (App / WhatsApp)</span>
+            <span class="mass-import-title">Importar publicaciones por lista masiva</span>
           </div>
-          <div class="paste-actions">
-            <button id="pasteClipboardBtn" class="btn btn-primary btn-sm">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-                <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+          <div class="mass-import-actions">
+            <button id="pasteClipboardBtn" class="btn btn-ghost btn-xs">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
               </svg>
-              Pegar
+              <span>Pegar directo</span>
             </button>
-            <button id="clearPasteBtn" class="btn btn-ghost btn-sm">Limpiar texto</button>
+            <button id="clearPasteBtn" class="btn btn-ghost btn-xs">Limpiar</button>
           </div>
         </div>
-        <textarea id="pasteInput" placeholder="Pega aquí el texto copiado de tu app o lista con códigos (ej. VEN648, ALQ779, PROF73)..."></textarea>
-        <div id="pasteStat" style="font-size:12px;color:var(--accent);font-weight:600;margin-top:6px;font-family:var(--font-mono);"></div>
+        <textarea id="pasteInput" class="mass-import-textarea"
+          placeholder="Pega aquí el texto copiado de tu app o lista con códigos (ej. VEN648, ALQ779, PROF73)..."></textarea>
+        <div id="pasteStat" class="paste-stat-msg"></div>
       </div>
 
-      <details id="manualFiltersDetails" style="display:none; margin-bottom:10px;">
-        <summary>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);">
-            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+      <!-- 2. Sección Principal de Filtros -->
+      <div class="main-filter-panel">
+        <!-- Barra de Búsqueda Global -->
+        <div class="search-primary-wrapper">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+            stroke-linecap="round" stroke-linejoin="round" class="search-lens-icon">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          Filtros Manuales (Día, Operación, Asesor...)
-        </summary>
-        <div class="filters">
-          <div class="row" style="grid-template-columns: 1fr;">
-            <input type="text" id="searchInput" placeholder="🔍 Buscar por código o título (ej. ALQ142)...">
-          </div>
-          <div class="row">
-            <select id="opFilter">
-              <option value="">Operación (todas)</option>
-            </select>
-            <select id="typeFilter">
-              <option value="">Tipo (todos)</option>
-            </select>
-          </div>
-          <div class="row">
-            <select id="activeFilter">
-              <option value="si" selected>Publicación: Activa (Si)</option>
-              <option value="">Publicación: Todas (incluir inactivas)</option>
-              <option value="no">Publicación: Inactiva (No)</option>
-            </select>
-            <select id="zoneFilter">
-              <option value="">Zona (todas)</option>
-            </select>
-          </div>
-          <div class="row">
-            <select id="dayFilter">
-              <option value="">Día de publicación (todos)</option>
-            </select>
-            <select id="statusFilter">
-              <option value="">Estado (todos)</option>
-            </select>
-          </div>
-          <div class="row" style="grid-template-columns: 1fr;">
-            <div>
-              <select id="agentFilter">
-                <option value="">Asesor (todos)</option>
+          <input type="text" id="searchInput" placeholder="Buscar por código, título o zona (ej. ALQ142)..."
+            autocomplete="off">
+          <button id="clearSearchInputBtn" class="clear-search-btn" aria-label="Limpiar búsqueda"
+            style="display:none;">&times;</button>
+        </div>
+
+        <!-- Filtro Desplegable Secundario (Tipo, Zona, Oficina Broker) -->
+        <details id="secondaryFiltersDetails" class="secondary-filters-details">
+          <summary class="secondary-filters-summary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round" class="panel-icon">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+            </svg>
+            <span>Filtros (Tipo, Zona, Oficina Broker)</span>
+          </summary>
+          <div class="compact-selects-grid">
+            <div class="select-field-wrapper">
+              <select id="typeFilter" class="filter-select">
+                <option value="">Tipo (todos)</option>
               </select>
-              <label style="font-size:12px; display:flex; align-items:center; gap:6px; margin-top:6px; color:var(--muted); cursor:pointer; user-select:none;">
-                <input type="checkbox" id="onlyActiveAgentsCheck" checked>
-                <span>Mostrar solo asesores activos (con propiedades vigentes)</span>
-              </label>
+            </div>
+            <div class="select-field-wrapper">
+              <select id="zoneFilter" class="filter-select">
+                <option value="">Zona (todas)</option>
+              </select>
+            </div>
+            <div class="select-field-wrapper">
+              <select id="ofiFilter" class="filter-select">
+                <option value="">Oficina Broker (todas)</option>
+              </select>
             </div>
           </div>
-          <div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:500;">Grupo Planificador (igual que el filtro "Filtrar" de la app)</div>
-            <div id="groupChecks" class="chips-group"></div>
+        </details>
+
+        <!-- 3. Módulo de Selección de Día y Grupo (Planificador - Sin textos "Día:" ni "Grupo:") -->
+        <div class="planificador-module-box">
+          <div class="planificador-module-header">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" class="plan-icon">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            <span>Planificador</span>
+          </div>
+
+          <div class="planificador-pills-container">
+            <!-- Días siempre en 1 sola fila -->
+            <div id="dayChips" class="chips-group day-pills-track"></div>
+            <!-- Grupos numéricos -->
+            <div id="groupChecks" class="chips-group group-pills-track"></div>
           </div>
         </div>
-      </details>
-      <div class="stat-line" id="resultStat" style="margin-top:10px;"></div>
+
+        <!-- 4. Pie del Módulo de Filtros (Barra de Estado y Limpieza) -->
+        <div class="panel-footer-bar">
+          <div class="stat-line" id="resultStat">
+            Mostrando <b>0</b> de <b>0</b> objetos encontrados
+          </div>
+          <button id="resetFiltersBtn" class="btn btn-ghost btn-xs reset-filters-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10" />
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+            </svg>
+            <span>Restablecer filtros</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Segmented Controls de Operación (Ubicado justo ARRIBA de Resultados) -->
+    <div id="opSegmentedBar" class="op-segmented-bar" style="display:none;">
+      <div id="opSegmentedControl" class="segmented-control-track">
+        <button class="segment-btn active" data-op="">Todas</button>
+        <button class="segment-btn" data-op="ALQUILER">Alquiler</button>
+        <button class="segment-btn" data-op="VENTA">Venta</button>
+        <button class="segment-btn" data-op="PREVENTA">Preventa</button>
+        <button class="segment-btn" data-op="ANTICRETICO">Anticrético</button>
+        <button class="segment-btn" data-op="ENTREGA INMEDIATA">Entrega Inmediata</button>
+        <button class="segment-btn" data-op="PROF / LOCAL">Prof / Local</button>
+      </div>
     </div>
 
     <div class="toolbar" id="toolbar" style="display:none">
@@ -188,18 +237,19 @@
           </select>
         </div>
         <button class="btn btn-ghost btn-sm" id="downloadAllBtn">
-          <svg id="downloadAllIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="7 10 12 15 17 10"/>
-            <line x1="12" y1="15" x2="12" y2="3"/>
+          <svg id="downloadAllIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
           </svg>
           <span id="downloadAllBtnText">Descargar todo</span>
         </button>
         <button class="btn btn-danger btn-sm" id="cancelDownloadBtn" style="display:none;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="15" y1="9" x2="9" y2="15"/>
-            <line x1="9" y1="9" x2="15" y2="15"/>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="15" y1="9" x2="9" y2="15" />
+            <line x1="9" y1="9" x2="15" y2="15" />
           </svg>
           Cancelar
         </button>
@@ -213,7 +263,8 @@
     </div>
 
     <footer class="app-footer">
-      <p>© Licencia <strong>Alvaro Asllani Martinez</strong> · WhatsApp: <a href="https://wa.me/59172234501" target="_blank" rel="noopener">wa.me/59172234501</a></p>
+      <p>© Licencia <strong>Alvaro Asllani Martinez</strong> · WhatsApp: <a href="https://wa.me/59172234501"
+          target="_blank" rel="noopener">wa.me/59172234501</a></p>
     </footer>
   </main>
 
@@ -221,7 +272,7 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(() => {});
+        navigator.serviceWorker.register('./sw.js').catch(() => { });
       });
     }
   </script>
