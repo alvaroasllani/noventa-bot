@@ -1,6 +1,6 @@
 {
-  "name": "DescargadorNova",
-  "short_name": "DescargadorNova",
+  "name": "NovaBot",
+  "short_name": "NovaBot",
   "description": "Herramienta para descargar fotos y copiar catálogos de inmuebles DescargadorNova",
   "start_url": "./index.html",
   "scope": "./",
