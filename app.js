@@ -650,7 +650,7 @@ function currentFiltered() {
     if (pasteStat) {
       if (missingCodes.length > 0 || matchedRows.length < pastedCodes.length) {
         const missingList = missingCodes.length > 0 ? missingCodes.join(', ') : 'Código duplicado o sin coincidencia directa';
-        pasteStat.innerHTML = `📋 <b>${pastedCodes.length}</b> códigos detectados (<b>${matchedRows.length}</b> encontrados) · <span style="color:var(--danger);font-weight:700;background:var(--danger-bg);padding:2px 8px;border-radius:4px;border:1px solid rgba(220,38,38,0.2);">⚠️ No está en tu data.json: ${missingList}</span>`;
+        pasteStat.innerHTML = `📋 <b>${pastedCodes.length}</b> códigos detectados (<b>${matchedRows.length}</b> encontrados) · <span style="color:var(--danger);font-weight:700;background:var(--danger-bg);padding:2px 8px;border-radius:4px;border:1px solid rgba(220,38,38,0.2);">⚠️ No se encontro codigo: ${missingList}</span>`;
       } else {
         pasteStat.innerHTML = `✅ <b>${pastedCodes.length}</b> códigos detectados y encontrados correctamente.`;
       }
@@ -1087,7 +1087,7 @@ function render(resetPagination = false) {
         <div class="obj-thumb" style="background-image:url('${thumbId ? driveThumbUrl(thumbId) : ''}')"></div>
         <div class="obj-info">
           <div class="obj-code">
-            ${codeFor(d)} 
+            <span class="code-badge">${codeFor(d)}</span>
             <span class="badge">${d[FIELD.type] || ''}</span>
             ${ofi ? `<span class="badge badge-ofi">🏢 ${ofi}</span>` : ''}
           </div>
