@@ -55,7 +55,8 @@ const FIELD = {
   ofiBroker: 'ofiBroker',
   equipoBroker: 'equipoBroker',
   catalog: 'vDBia',    // Texto catálogo de la propiedad
-  facebook: 'abzcW'    // Texto Facebook de la propiedad
+  facebook: 'abzcW',   // Texto Facebook de la propiedad
+  consignador: 'consignador'
 };
 
 const PREFIX = {
@@ -290,6 +291,53 @@ function updateEquipoDropdown() {
   }
 }
 
+function updateConsignadorDropdown() {
+  const sel = document.getElementById('consignadorFilter');
+  if (!sel) return;
+  const curValue = sel.value;
+
+  const consignadorMap = new Map();
+  ROWS.forEach(d => {
+    const rawConsignador = String(d[FIELD.consignador] || d['consignador'] || d['Consignador'] || '').trim();
+    if (!rawConsignador) return;
+
+    const cargo = String(d[FIELD.cargo] || d['Cargo'] || '').trim();
+    const isEx = /^ex/i.test(cargo) || isExAgent(rawConsignador);
+    if (isEx) return;
+
+    const isActive = String(d[FIELD.active] || '').toLowerCase() === 'si';
+    const isOpen = d[FIELD.status] !== 'Cerrada';
+
+    if (!consignadorMap.has(rawConsignador)) {
+      consignadorMap.set(rawConsignador, { total: 0, activeOpen: 0 });
+    }
+    const info = consignadorMap.get(rawConsignador);
+    info.total++;
+    if (isActive && isOpen) info.activeOpen++;
+  });
+
+  const sortedConsignadores = Array.from(consignadorMap.entries())
+    .filter(([_, info]) => info.activeOpen > 0)
+    .sort((a, b) => a[0].localeCompare(b[0], 'es', { sensitivity: 'base' }));
+
+  sel.innerHTML = `<option value="">Consignador (${sortedConsignadores.length})</option>`;
+
+  sortedConsignadores.forEach(([name, info]) => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = `${name} (${info.activeOpen})`;
+    sel.appendChild(opt);
+  });
+
+  if (sortedConsignadores.some(([name]) => name === curValue)) {
+    sel.value = curValue;
+    sel.classList.add('has-value');
+  } else {
+    sel.value = '';
+    sel.classList.remove('has-value');
+  }
+}
+
 function loadData(text, isUserUpload = false) {
   let json;
   try {
@@ -323,6 +371,7 @@ function loadData(text, isUserUpload = false) {
   populateSelect(document.getElementById('zoneFilter'), zones, 'Zona (todas)');
   populateSelect(document.getElementById('ofiFilter'), ofis, 'Oficina Broker (todas)');
   updateEquipoDropdown();
+  updateConsignadorDropdown();
 
   // Configurar Chips de Día Planificador (selección única con detección automática del día de hoy)
   const dayWrap = document.getElementById('dayChips');
@@ -531,6 +580,7 @@ async function handleUserFileUpload(file) {
           const planificador = planificadorRaw ? parseInt(planificadorRaw, 10) || planificadorRaw : '';
           const diaPlanificador = getVal('Dia planificador', 'dia planificador', 'Dia');
           const equipoBroker = getVal('Eq Broker ', 'eq broker', 'equipo broker', 'Equipo Broker');
+          const consignador = getVal('Consignador', 'consignador', 'Consignatario');
 
           return {
             data: {
@@ -552,7 +602,8 @@ async function handleUserFileUpload(file) {
               UZGXo: planificador,
               diaPlanificador: diaPlanificador,
               a6X7r: diaPlanificador,
-              equipoBroker: equipoBroker
+              equipoBroker: equipoBroker,
+              consignador: consignador
             }
           };
         });
@@ -667,6 +718,7 @@ function currentFiltered() {
   const zone = document.getElementById('zoneFilter')?.value || '';
   const ofi = document.getElementById('ofiFilter')?.value || '';
   const equipo = document.getElementById('equipoFilter')?.value || '';
+  const consignadorFilter = document.getElementById('consignadorFilter')?.value || '';
   
   const checkedGroups = [...document.querySelectorAll('#groupChecks input:checked')].map(i => String(i.value));
   const activeDayEl = document.querySelector('#dayChips .chip.active input');
@@ -696,6 +748,7 @@ function currentFiltered() {
     if (zone && d[FIELD.zone] !== zone) return false;
     if (ofi && (d['ofiBroker'] || d['Ofi BROKER'] || '') !== ofi) return false;
     if (equipo && (d['equipoBroker'] || d['Eq Broker '] || d['Equipo Broker'] || '') !== equipo) return false;
+    if (consignadorFilter && String(d[FIELD.consignador] || d['consignador'] || d['Consignador'] || '').trim() !== consignadorFilter) return false;
 
     // Filtro de Día Planificador (selección única)
     if (selectedDay) {
@@ -1352,7 +1405,7 @@ document.querySelectorAll('#opSegmentedControl .segment-btn').forEach(btn => {
 });
 
 // Selects con highlight al tener valor seleccionado
-['typeFilter', 'zoneFilter', 'ofiFilter', 'equipoFilter'].forEach(id => {
+['typeFilter', 'zoneFilter', 'ofiFilter', 'equipoFilter', 'consignadorFilter'].forEach(id => {
   const sel = document.getElementById(id);
   if (sel) {
     sel.addEventListener('change', () => {
@@ -1378,7 +1431,7 @@ document.getElementById('resetFiltersBtn')?.addEventListener('click', () => {
   });
 
   // Reset selects
-  ['typeFilter', 'zoneFilter', 'ofiFilter', 'equipoFilter'].forEach(id => {
+  ['typeFilter', 'zoneFilter', 'ofiFilter', 'equipoFilter', 'consignadorFilter'].forEach(id => {
     const sel = document.getElementById(id);
     if (sel) {
       sel.value = '';

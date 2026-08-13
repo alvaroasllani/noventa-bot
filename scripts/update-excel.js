@@ -177,6 +177,7 @@ async function main() {
     const planificador = planificadorRaw ? parseInt(planificadorRaw, 10) || planificadorRaw : '';
     const diaPlanificador = getColValue(r, 'Dia planificador', 'dia planificador', 'Dia');
     const equipoBroker = getColValue(r, 'Eq Broker ', 'eq broker', 'equipo broker', 'Equipo Broker', 'Equipo');
+    const consignador = getColValue(r, 'Consignador', 'consignador', 'Consignatario');
 
     return {
       data: {
@@ -198,7 +199,8 @@ async function main() {
         UZGXo: planificador,
         diaPlanificador: diaPlanificador,
         a6X7r: diaPlanificador,
-        equipoBroker: equipoBroker
+        equipoBroker: equipoBroker,
+        consignador: consignador
       }
     };
   });
