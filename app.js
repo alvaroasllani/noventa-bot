@@ -750,30 +750,56 @@ async function downloadDirectPhoto(id, filename) {
   }
 }
 
-async function copyToClipboard(text) {
-  if (!text) return false;
-  try {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-  } catch (e) {}
+function getCatalogText(d) {
+  if (!d) return '';
+  const val = d[FIELD.catalog] || d['vDBia'] || d['Txt Catalogo'] || d['txt catalogo'];
+  if (val && String(val).trim()) return String(val).trim();
+  const fbVal = d[FIELD.facebook] || d['abzcW'] || d['Txt Facebook'] || d['txt facebook'];
+  if (fbVal && String(fbVal).trim()) return String(fbVal).trim();
+  const title = d[FIELD.title] || d['5kIsO'] || 'Inmueble';
+  return `${codeFor(d)} - ${String(title).trim()}`;
+}
 
+function getFacebookText(d) {
+  if (!d) return '';
+  const fbVal = d[FIELD.facebook] || d['abzcW'] || d['Txt Facebook'] || d['txt facebook'];
+  if (fbVal && String(fbVal).trim()) return String(fbVal).trim();
+  const catVal = d[FIELD.catalog] || d['vDBia'] || d['Txt Catalogo'] || d['txt catalogo'];
+  if (catVal && String(catVal).trim()) return String(catVal).trim();
+  const title = d[FIELD.title] || d['5kIsO'] || 'Inmueble';
+  return `${codeFor(d)} - ${String(title).trim()}`;
+}
+
+function copyToClipboardSync(text) {
+  if (!text) return false;
+  let ok = false;
   try {
     const ta = document.createElement('textarea');
     ta.value = text;
     ta.style.position = 'fixed';
-    ta.style.opacity = '0';
+    ta.style.top = '0';
     ta.style.left = '-9999px';
+    ta.style.opacity = '0';
+    ta.setAttribute('readonly', '');
     document.body.appendChild(ta);
+    ta.focus();
     ta.select();
-    const ok = document.execCommand('copy');
+    ta.setSelectionRange(0, 999999);
+    ok = document.execCommand('copy');
     ta.remove();
-    return ok;
   } catch (e) {
-    return false;
+    ok = false;
   }
+  if (navigator.clipboard && window.isSecureContext && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).catch(() => {});
+  }
+  return ok;
 }
+
+async function copyToClipboard(text) {
+  return copyToClipboardSync(text);
+}
+
 
 function isIOS() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
@@ -795,8 +821,9 @@ function getMaxPhotosLimit() {
 
 async function downloadObject(d, btnTarget) {
   const btn = btnTarget.closest ? btnTarget.closest('button') : btnTarget;
-  const catalogText = d[FIELD.catalog] || d['vDBia'] || '';
-  const textCopied = await copyToClipboard(catalogText);
+  if (!btn || btn.disabled) return;
+  const catalogText = getCatalogText(d);
+  const textCopied = copyToClipboardSync(catalogText);
 
   const maxPhotos = getMaxPhotosLimit();
   const list = getPhotoList(d).slice(0, maxPhotos);
@@ -903,93 +930,99 @@ async function downloadObject(d, btnTarget) {
 
 async function fetchPhotoFiles(photoIds, code, onProgress) {
   const total = photoIds.length;
-  const fileArray = new Array(total);
+  if (!total) return [];
+
   let completed = 0;
+  // Carga paralela de todas las fotos en simultáneo para máximo rendimiento
+  const promises = photoIds.map(async (id, idx) => {
+    const numStr = String(idx + 1).padStart(2, '0');
+    const filename = idx === 0 ? `${code}_01_Portada.jpg` : `${code}_${numStr}_Foto.jpg`;
+    try {
+      const res = await fetch(`https://lh3.googleusercontent.com/d/${id}`);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const blob = await res.blob();
+      completed++;
+      if (onProgress) onProgress(completed, total);
+      return new File([blob], filename, { type: blob.type || 'image/jpeg' });
+    } catch (err) {
+      console.warn(`Error al cargar foto ${idx + 1}:`, err);
+      completed++;
+      if (onProgress) onProgress(completed, total);
+      return null;
+    }
+  });
 
-  // Carga paralela en lotes de 3 para máximo rendimiento
-  const batchSize = 3;
-  for (let i = 0; i < total; i += batchSize) {
-    if (CANCEL_DOWNLOADING_ALL) break;
-    const batch = photoIds.slice(i, i + batchSize);
-    await Promise.all(batch.map(async (id, batchIdx) => {
-      const idx = i + batchIdx;
-      const numStr = String(idx + 1).padStart(2, '0');
-      const filename = idx === 0 ? `${code}_01_Portada.jpg` : `${code}_${numStr}_Foto.jpg`;
-
-      try {
-        const res = await fetch(`https://lh3.googleusercontent.com/d/${id}`);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const blob = await res.blob();
-        fileArray[idx] = new File([blob], filename, { type: blob.type || 'image/jpeg' });
-      } catch (err) {
-        console.warn(`Error al cargar foto ${idx + 1}:`, err);
-      } finally {
-        completed++;
-        if (onProgress) onProgress(completed, total);
-      }
-    }));
-  }
-  return fileArray.filter(Boolean);
+  const files = await Promise.all(promises);
+  return files.filter(Boolean);
 }
 
-async function shareUnified(d, btnTarget) {
+async function shareSocial(d, btnTarget, platform = 'whatsapp') {
   const btn = btnTarget.closest ? btnTarget.closest('button') : btnTarget;
-  const catalogText = d[FIELD.catalog] || d['vDBia'] || d[FIELD.facebook] || d['abzcW'] || `${codeFor(d)} - ${(d[FIELD.title] || '').trim()}`;
-  const textCopied = await copyToClipboard(catalogText);
+  if (!btn || btn.disabled) return;
+
+  const isFB = platform === 'facebook';
+  const shareText = isFB ? getFacebookText(d) : getCatalogText(d);
+  const textName = isFB ? 'Facebook' : 'Catálogo';
+
+  // Copia síncrona inmediata al portapapeles en la interacción del usuario
+  const textCopied = copyToClipboardSync(shareText);
   const code = codeFor(d);
   const maxPhotos = getMaxPhotosLimit();
   const list = getPhotoList(d).slice(0, maxPhotos);
-  const pill = btn.parentElement.querySelector('.progress-pill');
+
+  const cardEl = btn.closest('.obj');
+  const pill = cardEl ? cardEl.querySelector('.progress-pill') : (btn.parentElement ? btn.parentElement.querySelector('.progress-pill') : null);
 
   btn.disabled = true;
-  pill.classList.add('show');
+  if (pill) pill.classList.add('show');
 
-  const copyNotice = textCopied ? '📋 Texto copiado · ' : '';
+  const copyNotice = textCopied ? `📋 Texto ${textName} copiado · ` : '';
 
   if (!list.length) {
-    pill.textContent = `${copyNotice}Abriendo ventana de compartir...`;
+    if (pill) pill.textContent = `${copyNotice}Abriendo ventana de compartir...`;
     if (canShareFiles()) {
       try {
-        await navigator.share({ title: code, text: catalogText });
-        pill.textContent = `✅ Compartido`;
+        await navigator.share({ title: code, text: shareText });
+        if (pill) pill.textContent = `✅ Compartido (${textName})`;
       } catch (e) {
-        pill.textContent = `${copyNotice}Texto en portapapeles`;
+        if (pill) pill.textContent = `${copyNotice}Listo`;
       }
     } else {
-      pill.textContent = `${copyNotice}Texto en portapapeles`;
+      if (pill) pill.textContent = `${copyNotice}Texto en portapapeles`;
     }
     btn.disabled = false;
-    setTimeout(() => { pill.classList.remove('show'); }, 3500);
+    setTimeout(() => { if (pill) pill.classList.remove('show'); }, 3500);
     return;
   }
 
-  pill.textContent = `${copyNotice}Cargando fotos 1/${list.length}...`;
+  if (pill) pill.textContent = `${copyNotice}Cargando fotos...`;
   const fileArray = await fetchPhotoFiles(list, code, (cur, total) => {
-    pill.textContent = `${copyNotice}Cargando fotos ${cur}/${total}...`;
+    if (pill) pill.textContent = `${copyNotice}Cargando fotos ${cur}/${total}...`;
   });
 
   if (canShareFiles() && fileArray.length > 0 && navigator.canShare({ files: fileArray })) {
     try {
-      pill.textContent = `📲 Elige la app (WhatsApp / Facebook) en el menú nativo...`;
+      if (pill) pill.textContent = `📲 Elige la app (${isFB ? 'Facebook' : 'WhatsApp'}) en el menú...`;
       await navigator.share({
         title: code,
-        text: catalogText,
+        text: shareText,
         files: fileArray
       });
-      pill.textContent = `✅ Fotos y texto listos para enviar`;
+      if (pill) pill.textContent = `✅ Fotos y texto ${textName} listos para enviar`;
     } catch (shareErr) {
       if (shareErr.name === 'AbortError') {
-        pill.textContent = textCopied ? '📋 Texto copiado' : 'Cancelado por el usuario';
+        if (pill) pill.textContent = textCopied ? `📋 Texto ${textName} copiado` : 'Cancelado por el usuario';
       } else {
-        console.warn('Share unified falló:', shareErr);
-        pill.textContent = `${copyNotice}Mostrando enlaces...`;
-        const cardEl = btn.closest('.obj');
-        const linksList = cardEl ? cardEl.querySelector('.links-list') : null;
-        if (linksList) linksList.style.display = 'block';
+        console.warn('Share falló:', shareErr);
+        if (pill) pill.textContent = `${copyNotice}Mostrando enlaces...`;
+        if (cardEl) {
+          const linksList = cardEl.querySelector('.links-list');
+          if (linksList) linksList.style.display = 'block';
+        }
       }
     }
   } else {
-    pill.textContent = `${copyNotice}Descargando fotos...`;
+    if (pill) pill.textContent = `${copyNotice}Descargando fotos...`;
     for (let i = 0; i < list.length; i++) {
       if (CANCEL_DOWNLOADING_ALL) break;
       const numStr = String(i + 1).padStart(2, '0');
@@ -997,11 +1030,11 @@ async function shareUnified(d, btnTarget) {
       await downloadDirectPhoto(list[i], filename);
       await new Promise(res => setTimeout(res, 400));
     }
-    pill.textContent = `📋 Texto copiado · Fotos descargadas`;
+    if (pill) pill.textContent = `📋 Texto ${textName} copiado · Fotos descargadas`;
   }
 
   btn.disabled = false;
-  setTimeout(() => { pill.classList.remove('show'); }, 4000);
+  setTimeout(() => { if (pill) pill.classList.remove('show'); }, 4000);
 }
 
 let PAGE_SIZE = 10;
@@ -1082,67 +1115,59 @@ function render(resetPagination = false) {
             <span>Descargar fotos (.jpg)</span>
           `}
         </button>
-        <button class="btn btn-share-unified btn-share-main">
-          <span style="display:inline-flex;align-items:center;gap:4px;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.99c-.002 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-            </svg>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-            </svg>
-          </span>
-          Compartir (WhatsApp / Facebook)
+        <button class="btn btn-share-wa">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.99c-.002 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+          </svg>
+          <span>Compartir WhatsApp</span>
+        </button>
+        <button class="btn btn-share-fb">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+          </svg>
+          <span>Compartir Facebook</span>
         </button>
         <button class="btn btn-ghost btn-copy-catalog">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
           </svg>
-          Copiar catálogo
+          <span>Copiar catálogo</span>
         </button>
         <button class="btn btn-ghost btn-copy-facebook">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
           </svg>
-          Copiar FB
+          <span>Copiar FB</span>
         </button>
         <span class="progress-pill"></span>
       </div>
     `;
 
-    el.querySelector('.btn-share-main').addEventListener('click', (e) => shareUnified(d, e.target));
-    el.querySelector('.btn-dl-jpg').addEventListener('click', (e) => downloadObject(d, e.target));
-    el.querySelector('.btn-copy-catalog').addEventListener('click', async () => {
-      const catalogText = d[FIELD.catalog] || d['vDBia'] || '';
+    el.querySelector('.btn-share-wa')?.addEventListener('click', (e) => shareSocial(d, e.target, 'whatsapp'));
+    el.querySelector('.btn-share-fb')?.addEventListener('click', (e) => shareSocial(d, e.target, 'facebook'));
+    el.querySelector('.btn-dl-jpg')?.addEventListener('click', (e) => downloadObject(d, e.target));
+    
+    el.querySelector('.btn-copy-catalog')?.addEventListener('click', () => {
+      const catalogText = getCatalogText(d);
       const pill = el.querySelector('.progress-pill');
-      if (!catalogText) {
-        alert('Este inmueble no tiene texto catálogo disponible.');
-        return;
+      const ok = copyToClipboardSync(catalogText);
+      if (pill) {
+        pill.classList.add('show');
+        pill.textContent = ok ? '📋 Catálogo copiado al portapapeles' : '⚠️ Error al copiar al portapapeles';
+        setTimeout(() => { pill.classList.remove('show'); }, 3500);
       }
-      const ok = await copyToClipboard(catalogText);
-      pill.classList.add('show');
-      if (ok) {
-        pill.textContent = '📋 Catálogo copiado al portapapeles';
-      } else {
-        pill.textContent = '⚠️ Error al copiar al portapapeles';
-      }
-      setTimeout(() => { pill.classList.remove('show'); }, 3500);
     });
-    el.querySelector('.btn-copy-facebook').addEventListener('click', async () => {
-      const fbText = d[FIELD.facebook] || d['abzcW'] || d[FIELD.catalog] || d['vDBia'] || '';
+
+    el.querySelector('.btn-copy-facebook')?.addEventListener('click', () => {
+      const fbText = getFacebookText(d);
       const pill = el.querySelector('.progress-pill');
-      if (!fbText) {
-        alert('Este inmueble no tiene texto de Facebook disponible.');
-        return;
+      const ok = copyToClipboardSync(fbText);
+      if (pill) {
+        pill.classList.add('show');
+        pill.textContent = ok ? '📘 Texto Facebook copiado al portapapeles' : '⚠️ Error al copiar al portapapeles';
+        setTimeout(() => { pill.classList.remove('show'); }, 3500);
       }
-      const ok = await copyToClipboard(fbText);
-      pill.classList.add('show');
-      if (ok) {
-        pill.textContent = '📘 Texto Facebook copiado al portapapeles';
-      } else {
-        pill.textContent = '⚠️ Error al copiar al portapapeles';
-      }
-      setTimeout(() => { pill.classList.remove('show'); }, 3500);
     });
 
     fragment.appendChild(el);
