@@ -28,11 +28,13 @@
           <div class="brand-mark">
             <img src="icon.png" alt="NovaBot Logo" class="brand-icon-img">
           </div>
-          <h1>NovaBot</h1>
+          <div class="brand-text-block">
+            <h1>NovaBot</h1>
+          </div>
         </div>
       </div>
 
-      <div class="header-actions" style="display:flex;align-items:center;gap:8px;">
+      <div class="header-actions">
         <button id="reloadPageBtn" class="icon-btn" aria-label="Recargar página" title="Recargar página">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
             stroke-linecap="round" stroke-linejoin="round">
@@ -64,11 +66,11 @@
   </header>
 
   <main>
-    <div class="card" style="padding: 12px 14px; display: none;">
+    <div class="card" style="display: none;">
       <details id="uploadDetails">
-        <summary style="font-size:13.5px;font-weight:600;display:flex;align-items:center;">
+        <summary>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);">
+            stroke-linecap="round" stroke-linejoin="round" class="panel-icon">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <polyline points="17 8 12 3 7 8" />
             <line x1="12" y1="3" x2="12" y2="15" />
@@ -76,8 +78,8 @@
           <span>Subir Propiedades.xlsx (opcional)</span>
         </summary>
         <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
-          <div class="drop" id="drop" style="padding: 16px 12px;">
-            <div class="drop-icon" style="width:32px;height:32px;margin-bottom:6px;">
+          <div class="drop" id="drop">
+            <div class="drop-icon">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -85,8 +87,8 @@
                 <line x1="12" y1="3" x2="12" y2="15" />
               </svg>
             </div>
-            <strong style="font-size:13.5px;">Seleccionar Propiedades.xlsx</strong>
-            <span style="font-size:11.5px;">Toca o arrastra aquí el archivo Propiedades.xlsx actualizado</span>
+            <strong>Seleccionar Propiedades.xlsx</strong>
+            <span>Toca o arrastra aquí el archivo Propiedades.xlsx actualizado</span>
           </div>
         </div>
       </details>
@@ -94,52 +96,33 @@
       <div class="stat-line" id="fileStat"
         style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
         <span id="fileStatText">⌛ Cargando datos...</span>
-        <button id="resetDataBtn" class="btn btn-ghost btn-sm"
-          style="display:none;padding:3px 8px;font-size:11px;min-height:26px;">Restablecer al original</button>
+        <button id="resetDataBtn" class="btn btn-ghost btn-xs" style="display:none;">Restablecer al original</button>
       </div>
     </div>
 
     <div class="card bento-filter-card" id="filtersCard" style="display:none">
-      <!-- 1. Módulo Superior: Entrada Masiva de Lista (Siempre visible y compacto) -->
-      <div id="massImportBox" class="mass-import-card">
-        <div class="mass-import-header">
-          <div class="mass-import-header-left">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round" class="accordion-icon">
-              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-              <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-            </svg>
-            <span class="mass-import-title">Importar publicaciones por lista masiva</span>
-          </div>
-          <div class="mass-import-actions">
-            <button id="pasteClipboardBtn" class="btn btn-ghost btn-xs">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-                <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-              </svg>
-              <span>Pegar directo</span>
-            </button>
-            <button id="clearPasteBtn" class="btn btn-ghost btn-xs">Limpiar</button>
-          </div>
-        </div>
-        <textarea id="pasteInput" class="mass-import-textarea"
-          placeholder="Pega aquí el texto copiado de tu app o lista con códigos (ej. VEN648, ALQ779, PROF73)..."></textarea>
-        <div id="pasteStat" class="paste-stat-msg"></div>
-      </div>
-
-      <!-- 2. Sección Principal de Filtros -->
+      <!-- Sección Principal de Filtros & Búsqueda -->
       <div class="main-filter-panel">
-        <!-- Barra de Búsqueda Global -->
+        <!-- Barra de Búsqueda Global (admite 1 o varios códigos, listas y texto) -->
         <div class="search-primary-wrapper">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
             stroke-linecap="round" stroke-linejoin="round" class="search-lens-icon">
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input type="text" id="searchInput" placeholder="Buscar por código, título o zona (ej. ALQ142)..."
+          <input type="text" id="searchInput" placeholder="Buscar o pegar códigos (ej. ALQ119, VEN648)..."
             autocomplete="off">
-          <button id="clearSearchInputBtn" class="clear-search-btn" aria-label="Limpiar búsqueda"
-            style="display:none;">&times;</button>
+          <div class="search-actions-group">
+            <button id="pasteSearchBtn" class="paste-search-btn" title="Pegar del portapapeles" aria-label="Pegar directo">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+              </svg>
+              <span>Pegar</span>
+            </button>
+            <button id="clearSearchInputBtn" class="clear-search-btn" aria-label="Limpiar búsqueda"
+              style="display:none;">&times;</button>
+          </div>
         </div>
 
         <!-- Filtro Desplegable Secundario (Tipo, Zona, Oficina Broker) -->

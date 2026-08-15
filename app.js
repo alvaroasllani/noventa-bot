@@ -670,48 +670,58 @@ function extractCodesFromText(text) {
 }
 
 function currentFiltered() {
-  const pasteText = document.getElementById('pasteInput')?.value || '';
-  const pastedCodes = extractCodesFromText(pasteText);
-  const pasteStat = document.getElementById('pasteStat');
+  const rawSearch = (document.getElementById('searchInput')?.value || '').trim();
+  if (rawSearch) {
+    const searchCodes = extractCodesFromText(rawSearch);
+    if (searchCodes.length > 0) {
+      const matchedRows = [];
+      searchCodes.forEach(c => {
+        const codeNum = c.replace(/^[A-Z]+/, '');
+        const prefix = c.replace(/\d+$/, '');
 
-  if (pastedCodes.length > 0) {
-    const matchedRows = [];
-    const missingCodes = [];
+        const found = ROWS.find(d => {
+          if (codeFor(d) === c) return true;
+          if (String(d[FIELD.code]) === codeNum && (PREFIX[d[FIELD.op]] === prefix || !d[FIELD.op])) return true;
+          const desc = String(d['vDBia'] || '');
+          const title = String(d[FIELD.title] || '');
+          if (new RegExp(`\\b#?${c}\\b`, 'i').test(desc) || new RegExp(`\\b#?${c}\\b`, 'i').test(title)) return true;
+          return false;
+        });
 
-    pastedCodes.forEach(c => {
-      const codeNum = c.replace(/^[A-Z]+/, '');
-      const prefix = c.replace(/\d+$/, '');
-
-      const found = ROWS.find(d => {
-        if (codeFor(d) === c) return true;
-        if (String(d[FIELD.code]) === codeNum && (PREFIX[d[FIELD.op]] === prefix || !d[FIELD.op])) return true;
-        const desc = String(d['vDBia'] || '');
-        const title = String(d[FIELD.title] || '');
-        if (new RegExp(`\\b#?${c}\\b`, 'i').test(desc) || new RegExp(`\\b#?${c}\\b`, 'i').test(title)) return true;
-        return false;
+        if (found && !matchedRows.includes(found)) {
+          matchedRows.push(found);
+        }
       });
 
-      if (found) {
-        if (!matchedRows.includes(found)) matchedRows.push(found);
-      } else {
-        missingCodes.push(c);
-      }
-    });
-
-    if (pasteStat) {
-      if (missingCodes.length > 0 || matchedRows.length < pastedCodes.length) {
-        const missingList = missingCodes.length > 0 ? missingCodes.join(', ') : 'Código duplicado o sin coincidencia directa';
-        pasteStat.innerHTML = `📋 <b>${pastedCodes.length}</b> códigos detectados (<b>${matchedRows.length}</b> encontrados) · <span style="color:var(--danger);font-weight:700;background:var(--danger-bg);padding:2px 8px;border-radius:4px;border:1px solid rgba(220,38,38,0.2);">⚠️ No se encontro codigo: ${missingList}</span>`;
-      } else {
-        pasteStat.innerHTML = `✅ <b>${pastedCodes.length}</b> códigos detectados y encontrados correctamente.`;
+      if (matchedRows.length > 0) {
+        return matchedRows;
       }
     }
-    return matchedRows;
-  } else {
-    if (pasteStat) pasteStat.innerHTML = '';
+
+    // Si son múltiples términos/números separados por espacio o coma (ej: "119, 648" o "ALQ119 VEN648")
+    const searchTokens = rawSearch.toLowerCase().split(/[\s,]+/).filter(Boolean);
+    if (searchTokens.length > 1) {
+      const isMultiCodeOrNum = searchTokens.some(t => /^\d+$/.test(t) || /^[a-z]+\d+$/i.test(t));
+      if (isMultiCodeOrNum) {
+        return ROWS.filter(d => {
+          const code = codeFor(d).toLowerCase();
+          const codeNum = String(d[FIELD.code] || '').toLowerCase();
+          const title = (d[FIELD.title] || '').toLowerCase();
+          const zoneVal = (d[FIELD.zone] || '').toLowerCase();
+
+          return searchTokens.some(token =>
+            code === token ||
+            codeNum === token ||
+            code.includes(token) ||
+            title.includes(token) ||
+            zoneVal.includes(token)
+          );
+        });
+      }
+    }
   }
 
-  const search = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
+  const search = rawSearch.toLowerCase();
   const activeOpBtn = document.querySelector('#opSegmentedControl .segment-btn.active');
   const op = activeOpBtn ? (activeOpBtn.dataset.op || '') : (document.getElementById('opFilter')?.value || '');
   const type = document.getElementById('typeFilter')?.value || '';
@@ -1114,7 +1124,21 @@ function render(resetPagination = false) {
   container.innerHTML = '';
 
   if (!list.length) {
-    container.innerHTML = '<div class="empty">No se encontraron inmuebles con los filtros seleccionados.</div>';
+    container.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            <line x1="8" y1="11" x2="14" y2="11"/>
+          </svg>
+        </div>
+        <div class="empty-text">
+          <strong style="display:block;margin-bottom:4px;color:var(--text);">No se encontraron inmuebles</strong>
+          <span>Ajusta los filtros seleccionados o pega una lista de códigos en el cuadro superior.</span>
+        </div>
+      </div>
+    `;
     return;
   }
 
@@ -1142,10 +1166,10 @@ function render(resetPagination = false) {
           <div class="obj-code">
             <span class="code-badge">${codeFor(d)}</span>
             <span class="badge">${d[FIELD.type] || ''}</span>
-            ${ofi ? `<span class="badge badge-ofi">🏢 ${ofi}</span>` : ''}
+            ${ofi ? `<span class="badge badge-ofi">${ofi}</span>` : ''}
           </div>
           <div class="obj-title">${(d[FIELD.title] || 'Sin título').trim()}</div>
-          <div class="obj-meta">${d[FIELD.zone] || ''} · ${d[FIELD.currency] || ''} ${d[FIELD.price] ?? ''} · ${count} foto${count === 1 ? '' : 's'}</div>
+          <div class="obj-meta tabular-nums">${d[FIELD.zone] || ''} · ${d[FIELD.currency] || ''} ${d[FIELD.price] ?? ''} · ${count} foto${count === 1 ? '' : 's'}</div>
         </div>
       </div>
       <div class="obj-actions">
@@ -1231,10 +1255,10 @@ function render(resetPagination = false) {
   if (list.length > VISIBLE_COUNT) {
     const nextBatch = Math.min(PAGE_SIZE, list.length - VISIBLE_COUNT);
     const btnWrap = document.createElement('div');
-    btnWrap.style.cssText = 'text-align:center;margin:20px 0 10px;grid-column:1/-1;';
+    btnWrap.style.cssText = 'text-align:center;margin:16px 0 8px;width:100%;';
     btnWrap.innerHTML = `
-      <button id="loadMoreBtn" class="btn btn-primary" style="padding:10px 24px;font-size:13.5px;font-weight:600;display:inline-flex;align-items:center;gap:8px;border-radius:8px;box-shadow:0 4px 12px rgba(37,99,235,0.25);cursor:pointer;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <button id="loadMoreBtn" class="btn btn-primary" style="padding:10px 24px;font-size:0.875rem;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <line x1="12" y1="5" x2="12" y2="19"/>
           <polyline points="19 12 12 19 5 12"/>
         </svg>
@@ -1346,35 +1370,29 @@ document.getElementById('cancelDownloadBtn')?.addEventListener('click', () => {
   }
 });
 
-document.getElementById('pasteInput')?.addEventListener('input', debounce(() => render(true), 180));
-document.getElementById('pasteClipboardBtn')?.addEventListener('click', async () => {
-  try {
-    const text = await navigator.clipboard.readText();
-    if (text) {
-      const input = document.getElementById('pasteInput');
-      if (input) input.value = text;
-      render(true);
-    } else {
-      alert('El portapapeles está vacío.');
-    }
-  } catch (err) {
-    const textarea = document.getElementById('pasteInput');
-    if (textarea) textarea.focus();
-    alert('Por favor mantén presionado el cuadro de texto para pegar.');
-  }
-});
-
-document.getElementById('clearPasteBtn')?.addEventListener('click', () => {
-  const input = document.getElementById('pasteInput');
-  if (input) input.value = '';
-  render(true);
-});
-
-const pasteInputEl = document.getElementById('pasteInput');
-if (pasteInputEl) pasteInputEl.value = '';
-
 const searchInputEl = document.getElementById('searchInput');
 const clearSearchBtn = document.getElementById('clearSearchInputBtn');
+const pasteSearchBtn = document.getElementById('pasteSearchBtn');
+
+if (pasteSearchBtn) {
+  pasteSearchBtn.addEventListener('click', async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        if (searchInputEl) {
+          searchInputEl.value = text;
+          if (clearSearchBtn) clearSearchBtn.style.display = 'inline-flex';
+        }
+        render(true);
+      } else {
+        alert('El portapapeles está vacío.');
+      }
+    } catch (err) {
+      if (searchInputEl) searchInputEl.focus();
+      alert('Por favor mantén presionado el buscador para pegar.');
+    }
+  });
+}
 
 if (searchInputEl) {
   searchInputEl.addEventListener('input', () => {
