@@ -1237,10 +1237,40 @@ main {
 
 .obj-actions {
   padding: 0 16px 16px;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
+}
+
+.obj-actions .btn {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.obj-actions .btn-primary {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.obj-actions .btn-share-wa {
+  grid-column: 1;
+}
+
+.obj-actions .btn-share-fb {
+  grid-column: 2;
+}
+
+.obj-actions .btn-copy-catalog {
+  grid-column: 1;
+}
+
+.obj-actions .btn-copy-facebook {
+  grid-column: 2;
+}
+
+.obj-actions .progress-pill {
+  grid-column: 1 / -1;
 }
 
 .progress-pill {
@@ -1547,6 +1577,7 @@ input[type="file"] {
     white-space: normal;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     line-height: 1.3;
@@ -1554,30 +1585,41 @@ input[type="file"] {
 
   .obj-actions {
     padding: 0 14px 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 8px;
-    align-items: stretch;
+  }
+
+  .obj-actions .btn {
+    min-height: 42px;
+    font-size: 0.8125rem;
+    padding: 4px 6px;
+    white-space: nowrap;
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
   }
 
   .obj-actions .btn-primary {
-    width: 100%;
-    min-height: 44px; /* Generous 44px touch target on mobile */
+    grid-column: 1 / -1;
+    min-height: 44px;
     font-size: 0.875rem;
-    justify-content: center;
   }
 
-  .obj-actions .btn-share-wa,
-  .obj-actions .btn-share-fb,
-  .obj-actions .btn-copy-catalog,
+  .obj-actions .btn-share-wa {
+    grid-column: 1;
+  }
+
+  .obj-actions .btn-share-fb {
+    grid-column: 2;
+  }
+
+  .obj-actions .btn-copy-catalog {
+    grid-column: 1;
+  }
+
   .obj-actions .btn-copy-facebook {
-    flex: 1 1 calc(50% - 4px);
-    height: 42px;
-    min-height: 42px;
-    font-size: 0.8125rem;
-    font-weight: 700;
-    padding: 4px 6px;
-    justify-content: center;
-    align-items: center;
-    white-space: nowrap;
+    grid-column: 2;
   }
 }
 
