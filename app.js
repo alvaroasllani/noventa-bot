@@ -888,12 +888,12 @@ function getMaxPhotosLimit() {
   return isNaN(val) || val <= 0 ? 999 : val;
 }
 
-let currentIOSShareData = null;
-let currentIOSShareFiles = [];
+let currentIOSShareContext = 'save';
 
 function openIOSShareModal(d, fileArray, context = 'save') {
   currentIOSShareData = d;
   currentIOSShareFiles = fileArray || [];
+  currentIOSShareContext = context;
 
   const modal = document.getElementById('iosShareModal');
   if (!modal) return;
@@ -1149,8 +1149,20 @@ async function shareSocial(d, btnTarget, platform = 'whatsapp') {
     if (canShareFiles() && fileArray.length > 0) {
       try {
         if (pill) pill.textContent = `📲 Elige ${isFB ? 'Facebook' : 'WhatsApp'} en el menú...`;
-        await navigator.share({ files: fileArray });
-        if (pill) pill.textContent = `✅ Fotos listas · Texto ${textName} copiado`;
+        try {
+          await navigator.share({
+            title: code,
+            text: shareText,
+            files: fileArray
+          });
+        } catch (mixErr) {
+          if (mixErr.name !== 'AbortError') {
+            await navigator.share({ files: fileArray });
+          } else {
+            throw mixErr;
+          }
+        }
+        if (pill) pill.textContent = `✅ Fotos y texto ${textName} listos para enviar`;
         btn.disabled = false;
         setTimeout(() => { if (pill) pill.classList.remove('show'); }, 4000);
         return;
@@ -1629,7 +1641,29 @@ document.getElementById('iosModalShareBtn')?.addEventListener('click', async () 
   }
   if (canShareFiles()) {
     try {
-      await navigator.share({ files: currentIOSShareFiles });
+      const d = currentIOSShareData;
+      const isFB = currentIOSShareContext === 'facebook';
+      const isSave = currentIOSShareContext === 'save';
+      const shareText = isFB ? getFacebookText(d) : getCatalogText(d);
+      const code = d ? codeFor(d) : '';
+
+      try {
+        if (isSave) {
+          await navigator.share({ files: currentIOSShareFiles });
+        } else {
+          await navigator.share({
+            title: code,
+            text: shareText,
+            files: currentIOSShareFiles
+          });
+        }
+      } catch (mixErr) {
+        if (mixErr.name !== 'AbortError') {
+          await navigator.share({ files: currentIOSShareFiles });
+        } else {
+          throw mixErr;
+        }
+      }
       closeIOSShareModal();
     } catch (err) {
       if (err.name !== 'AbortError') {
