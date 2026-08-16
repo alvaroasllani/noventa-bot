@@ -841,13 +841,20 @@ function copyToClipboardSync(text) {
     ta.value = text;
     ta.style.position = 'fixed';
     ta.style.top = '0';
-    ta.style.left = '-9999px';
-    ta.style.opacity = '0';
+    ta.style.left = '0';
+    ta.style.width = '2em';
+    ta.style.height = '2em';
+    ta.style.padding = '0';
+    ta.style.border = 'none';
+    ta.style.outline = 'none';
+    ta.style.boxShadow = 'none';
+    ta.style.background = 'transparent';
+    ta.style.opacity = '0.01';
     ta.setAttribute('readonly', '');
     document.body.appendChild(ta);
     ta.focus();
     ta.select();
-    ta.setSelectionRange(0, 999999);
+    ta.setSelectionRange(0, text.length);
     ok = document.execCommand('copy');
     ta.remove();
   } catch (e) {
@@ -855,6 +862,7 @@ function copyToClipboardSync(text) {
   }
   if (navigator.clipboard && window.isSecureContext && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).catch(() => {});
+    ok = true;
   }
   return ok;
 }
@@ -863,16 +871,14 @@ async function copyToClipboard(text) {
   return copyToClipboardSync(text);
 }
 
-
 function isIOS() {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const ua = navigator.userAgent || navigator.vendor || window.opera || '';
+  const isTouchMac = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+  return /iPad|iPhone|iPod/.test(ua) || isTouchMac;
 }
 
 function canShareFiles() {
-  return typeof navigator !== 'undefined' &&
-    typeof navigator.share === 'function' &&
-    typeof navigator.canShare === 'function';
+  return typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 }
 
 function getMaxPhotosLimit() {
@@ -882,113 +888,92 @@ function getMaxPhotosLimit() {
   return isNaN(val) || val <= 0 ? 999 : val;
 }
 
-async function downloadObject(d, btnTarget) {
-  const btn = btnTarget.closest ? btnTarget.closest('button') : btnTarget;
-  if (!btn || btn.disabled) return;
-  const catalogText = getCatalogText(d);
-  const textCopied = copyToClipboardSync(catalogText);
+let currentIOSShareData = null;
+let currentIOSShareFiles = [];
 
-  const maxPhotos = getMaxPhotosLimit();
-  const list = getPhotoList(d).slice(0, maxPhotos);
-  if (!list.length) {
-    alert('Este objeto no tiene fotos detectadas.' + (textCopied ? ' (Texto catálogo copiado al portapapeles)' : ''));
-    return;
-  }
+function openIOSShareModal(d, fileArray, context = 'save') {
+  currentIOSShareData = d;
+  currentIOSShareFiles = fileArray || [];
+
+  const modal = document.getElementById('iosShareModal');
+  if (!modal) return;
+
   const code = codeFor(d);
+  const isFB = context === 'facebook';
+  const isWA = context === 'whatsapp';
+  const catalogText = getCatalogText(d);
+  const fbText = getFacebookText(d);
+  const activeText = isFB ? fbText : catalogText;
+  const textName = isFB ? 'Facebook' : 'Catálogo';
 
-  btn.disabled = true;
-  const pill = btn.parentElement.querySelector('.progress-pill');
-  pill.classList.add('show');
+  // Asegurar copia síncrona de texto
+  copyToClipboardSync(activeText);
 
-  // Usar Web Share API ÚNICAMENTE en dispositivos iOS (iPhone / iPad)
-  if (isIOS() && canShareFiles()) {
-    try {
-      const copyNotice = textCopied ? '📋 Catálogo copiado · ' : '';
-      pill.textContent = `${copyNotice}Cargando fotos para guardar/compartir...`;
+  // Elementos UI del Modal
+  const badgeEl = document.getElementById('iosModalBadge');
+  const titleEl = document.getElementById('iosModalTitle');
+  const alertTextEl = document.getElementById('iosModalAlertText');
+  const shareBtnTextEl = document.getElementById('iosModalShareText');
+  const waLink = document.getElementById('iosModalWhatsAppLink');
+  const fbLink = document.getElementById('iosModalFacebookLink');
+  const galleryEl = document.getElementById('iosModalGallery');
 
-      const fileArray = [];
-      for (let i = 0; i < list.length; i++) {
-        if (CANCEL_DOWNLOADING_ALL) break;
-        pill.textContent = `${copyNotice}Cargando foto ${i + 1}/${list.length}...`;
-        const numStr = String(i + 1).padStart(2, '0');
-        const filename = i === 0 ? `${code}_01_Portada.jpg` : `${code}_${numStr}_Foto.jpg`;
-
-        try {
-          const res = await fetch(`https://lh3.googleusercontent.com/d/${list[i]}`);
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          const blob = await res.blob();
-          const file = new File([blob], filename, { type: blob.type || 'image/jpeg' });
-          fileArray.push(file);
-        } catch (err) {
-          console.warn('Error al obtener imagen para compartir:', err);
-        }
-      }
-
-      if (fileArray.length > 0 && navigator.canShare({ files: fileArray })) {
-        pill.textContent = `📲 Abriendo ventana de compartir del iPhone...`;
-        await navigator.share({
-          title: code,
-          text: catalogText ? `${code} - ${(d[FIELD.title] || '').trim()}` : code,
-          files: fileArray
-        });
-        pill.textContent = `${copyNotice}✅ Fotos enviadas / guardadas`;
-        btn.disabled = false;
-        setTimeout(() => { pill.classList.remove('show'); }, 4000);
-        return;
-      }
-    } catch (shareErr) {
-      if (shareErr.name === 'AbortError') {
-        pill.textContent = textCopied ? '📋 Catálogo copiado' : 'Cancelado por el usuario';
-        btn.disabled = false;
-        setTimeout(() => { pill.classList.remove('show'); }, 3000);
-        return;
-      }
-      console.warn('navigator.share falló en iOS, mostrando enlaces:', shareErr);
-    }
+  if (badgeEl) badgeEl.textContent = code;
+  if (titleEl) {
+    if (isFB) titleEl.textContent = 'Publicar en Facebook';
+    else if (isWA) titleEl.textContent = 'Enviar por WhatsApp';
+    else titleEl.textContent = 'Guardar en Fotos / Compartir';
   }
 
-  // Fallback para iOS si la Web Share API no estuviera disponible
-  if (isIOS()) {
-    const cardEl = btn.closest('.obj');
-    const linksList = cardEl ? cardEl.querySelector('.links-list') : null;
-    if (linksList) {
-      linksList.style.display = 'block';
-      pill.textContent = `📋 Catálogo copiado · Toca cada foto abajo para guardar en tu iPhone`;
-    } else {
-      pill.textContent = `📋 Catálogo copiado`;
-    }
-    btn.disabled = false;
-    setTimeout(() => { pill.classList.remove('show'); }, 6000);
-    return;
+  if (alertTextEl) {
+    alertTextEl.textContent = `Texto ${textName} copiado al portapapeles. Listo para pegar.`;
   }
 
-  // Descarga secuencial directa original (Android / PC / Mac)
-  for (let i = 0; i < list.length; i++) {
-    if (CANCEL_DOWNLOADING_ALL) break;
-
-    while (IS_PAUSED_ALL && !CANCEL_DOWNLOADING_ALL) {
-      pill.textContent = `⏸️ Pausado (${i}/${list.length})`;
-      await new Promise(res => setTimeout(res, 250));
-    }
-
-    if (CANCEL_DOWNLOADING_ALL) break;
-
-    const copyNotice = textCopied ? '📋 Catálogo copiado · ' : '';
-    pill.textContent = `${copyNotice}Descargando ${i + 1}/${list.length}...`;
-    const numStr = String(i + 1).padStart(2, '0');
-    const filename = i === 0 ? `${code}_01_Portada.jpg` : `${code}_${numStr}_Foto.jpg`;
-    await downloadDirectPhoto(list[i], filename);
-    await new Promise(res => setTimeout(res, 500));
+  if (shareBtnTextEl) {
+    const count = currentIOSShareFiles.length;
+    if (isFB) shareBtnTextEl.textContent = `📲 Compartir ${count ? count + ' ' : ''}fotos en Facebook`;
+    else if (isWA) shareBtnTextEl.textContent = `📲 Compartir ${count ? count + ' ' : ''}fotos en WhatsApp`;
+    else shareBtnTextEl.textContent = `📲 Guardar ${count ? count + ' ' : ''}fotos en tu iPhone`;
   }
 
-  if (CANCEL_DOWNLOADING_ALL) {
-    pill.textContent = `❌ Cancelado`;
-  } else {
-    const copyNotice = textCopied ? '📋 Catálogo copiado · ' : '';
-    pill.textContent = `${copyNotice}✅ Listo (${list.length})`;
+  if (waLink) {
+    waLink.href = `https://api.whatsapp.com/send?text=${encodeURIComponent(catalogText)}`;
   }
-  btn.disabled = false;
-  setTimeout(() => { pill.classList.remove('show'); }, 4000);
+  if (fbLink) {
+    fbLink.href = 'https://m.facebook.com/';
+  }
+
+  if (galleryEl) {
+    galleryEl.innerHTML = '';
+    const maxPhotos = getMaxPhotosLimit();
+    const photoIds = getPhotoList(d).slice(0, maxPhotos);
+
+    photoIds.forEach((id, idx) => {
+      const item = document.createElement('div');
+      item.className = 'ios-gallery-item';
+      item.innerHTML = `
+        <span class="ios-photo-badge">#${idx + 1}</span>
+        <img src="${driveThumbUrl(id)}" alt="Foto ${idx + 1}" loading="lazy" />
+        <a href="https://lh3.googleusercontent.com/d/${id}" target="_blank" rel="noopener" class="ios-photo-link">
+          <span>Abrir foto HD ↗</span>
+        </a>
+      `;
+      galleryEl.appendChild(item);
+    });
+  }
+
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeIOSShareModal() {
+  const modal = document.getElementById('iosShareModal');
+  if (modal) {
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
 }
 
 async function fetchPhotoFiles(photoIds, code, onProgress) {
@@ -1019,6 +1004,89 @@ async function fetchPhotoFiles(photoIds, code, onProgress) {
   return files.filter(Boolean);
 }
 
+async function downloadObject(d, btnTarget) {
+  const btn = btnTarget.closest ? btnTarget.closest('button') : btnTarget;
+  if (!btn || btn.disabled) return;
+  const catalogText = getCatalogText(d);
+  const textCopied = copyToClipboardSync(catalogText);
+
+  const maxPhotos = getMaxPhotosLimit();
+  const list = getPhotoList(d).slice(0, maxPhotos);
+  if (!list.length) {
+    alert('Este objeto no tiene fotos detectadas.' + (textCopied ? ' (Texto catálogo copiado al portapapeles)' : ''));
+    return;
+  }
+  const code = codeFor(d);
+
+  btn.disabled = true;
+  const cardEl = btn.closest('.obj');
+  const pill = cardEl ? cardEl.querySelector('.progress-pill') : (btn.parentElement ? btn.parentElement.querySelector('.progress-pill') : null);
+  if (pill) pill.classList.add('show');
+
+  const copyNotice = textCopied ? '📋 Catálogo copiado · ' : '';
+
+  // Flujo optimizado para iOS (iPhone / iPad)
+  if (isIOS()) {
+    if (pill) pill.textContent = `${copyNotice}Cargando fotos para iPhone...`;
+    const fileArray = await fetchPhotoFiles(list, code, (cur, total) => {
+      if (pill) pill.textContent = `${copyNotice}Cargando fotos ${cur}/${total}...`;
+    });
+
+    if (canShareFiles() && fileArray.length > 0) {
+      try {
+        if (pill) pill.textContent = `📲 Abriendo menú de Fotos...`;
+        // En iOS Safari, pasar SOLAMENTE { files } para que WebKit no rechace la llamada
+        await navigator.share({ files: fileArray });
+        if (pill) pill.textContent = `${copyNotice}✅ Fotos listas / guardadas`;
+        btn.disabled = false;
+        setTimeout(() => { if (pill) pill.classList.remove('show'); }, 4000);
+        return;
+      } catch (shareErr) {
+        if (shareErr.name === 'AbortError') {
+          if (pill) pill.textContent = textCopied ? '📋 Catálogo copiado' : 'Cancelado';
+          btn.disabled = false;
+          setTimeout(() => { if (pill) pill.classList.remove('show'); }, 3000);
+          return;
+        }
+        console.warn('navigator.share bloqueado por Safari o no soportado, abriendo modal interactivo:', shareErr);
+      }
+    }
+
+    // Fallback interactivo para iOS si navigator.share expiró por timeout de gesto
+    openIOSShareModal(d, fileArray, 'save');
+    if (pill) pill.textContent = `${copyNotice}Toca el botón en pantalla`;
+    btn.disabled = false;
+    setTimeout(() => { if (pill) pill.classList.remove('show'); }, 4000);
+    return;
+  }
+
+  // Descarga secuencial directa original (Android / PC / Mac)
+  for (let i = 0; i < list.length; i++) {
+    if (CANCEL_DOWNLOADING_ALL) break;
+
+    while (IS_PAUSED_ALL && !CANCEL_DOWNLOADING_ALL) {
+      if (pill) pill.textContent = `⏸️ Pausado (${i}/${list.length})`;
+      await new Promise(res => setTimeout(res, 250));
+    }
+
+    if (CANCEL_DOWNLOADING_ALL) break;
+
+    if (pill) pill.textContent = `${copyNotice}Descargando ${i + 1}/${list.length}...`;
+    const numStr = String(i + 1).padStart(2, '0');
+    const filename = i === 0 ? `${code}_01_Portada.jpg` : `${code}_${numStr}_Foto.jpg`;
+    await downloadDirectPhoto(list[i], filename);
+    await new Promise(res => setTimeout(res, 500));
+  }
+
+  if (CANCEL_DOWNLOADING_ALL) {
+    if (pill) pill.textContent = `❌ Cancelado`;
+  } else {
+    if (pill) pill.textContent = `${copyNotice}✅ Listo (${list.length})`;
+  }
+  btn.disabled = false;
+  setTimeout(() => { if (pill) pill.classList.remove('show'); }, 4000);
+}
+
 async function shareSocial(d, btnTarget, platform = 'whatsapp') {
   const btn = btnTarget.closest ? btnTarget.closest('button') : btnTarget;
   if (!btn || btn.disabled) return;
@@ -1027,7 +1095,7 @@ async function shareSocial(d, btnTarget, platform = 'whatsapp') {
   const shareText = isFB ? getFacebookText(d) : getCatalogText(d);
   const textName = isFB ? 'Facebook' : 'Catálogo';
 
-  // Copia síncrona inmediata al portapapeles en la interacción del usuario
+  // Copia inmediata síncrona en el gesto del usuario
   const textCopied = copyToClipboardSync(shareText);
   const code = codeFor(d);
   const maxPhotos = getMaxPhotosLimit();
@@ -1042,16 +1110,29 @@ async function shareSocial(d, btnTarget, platform = 'whatsapp') {
   const copyNotice = textCopied ? `📋 Texto ${textName} copiado · ` : '';
 
   if (!list.length) {
-    if (pill) pill.textContent = `${copyNotice}Abriendo ventana de compartir...`;
-    if (canShareFiles()) {
-      try {
-        await navigator.share({ title: code, text: shareText });
-        if (pill) pill.textContent = `✅ Compartido (${textName})`;
-      } catch (e) {
-        if (pill) pill.textContent = `${copyNotice}Listo`;
+    if (isIOS()) {
+      if (platform === 'whatsapp') {
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank');
+      } else {
+        window.open('https://m.facebook.com/', '_blank');
       }
+      if (pill) pill.textContent = `✅ Texto ${textName} copiado`;
     } else {
-      if (pill) pill.textContent = `${copyNotice}Texto en portapapeles`;
+      if (canShareFiles()) {
+        try {
+          await navigator.share({ title: code, text: shareText });
+          if (pill) pill.textContent = `✅ Compartido (${textName})`;
+        } catch (e) {
+          if (pill) pill.textContent = `${copyNotice}Listo`;
+        }
+      } else {
+        if (platform === 'whatsapp') {
+          window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank');
+        } else {
+          window.open('https://m.facebook.com/', '_blank');
+        }
+        if (pill) pill.textContent = `${copyNotice}Texto en portapapeles`;
+      }
     }
     btn.disabled = false;
     setTimeout(() => { if (pill) pill.classList.remove('show'); }, 3500);
@@ -1063,9 +1144,39 @@ async function shareSocial(d, btnTarget, platform = 'whatsapp') {
     if (pill) pill.textContent = `${copyNotice}Cargando fotos ${cur}/${total}...`;
   });
 
-  if (canShareFiles() && fileArray.length > 0 && navigator.canShare({ files: fileArray })) {
+  // Flujo específico para iOS
+  if (isIOS()) {
+    if (canShareFiles() && fileArray.length > 0) {
+      try {
+        if (pill) pill.textContent = `📲 Elige ${isFB ? 'Facebook' : 'WhatsApp'} en el menú...`;
+        await navigator.share({ files: fileArray });
+        if (pill) pill.textContent = `✅ Fotos listas · Texto ${textName} copiado`;
+        btn.disabled = false;
+        setTimeout(() => { if (pill) pill.classList.remove('show'); }, 4000);
+        return;
+      } catch (shareErr) {
+        if (shareErr.name === 'AbortError') {
+          if (pill) pill.textContent = textCopied ? `📋 Texto ${textName} copiado` : 'Cancelado';
+          btn.disabled = false;
+          setTimeout(() => { if (pill) pill.classList.remove('show'); }, 3000);
+          return;
+        }
+        console.warn('Share falló en iOS, abriendo modal interactivo:', shareErr);
+      }
+    }
+
+    // Fallback interactivo para iOS
+    openIOSShareModal(d, fileArray, platform);
+    if (pill) pill.textContent = `${copyNotice}Toca el botón en pantalla`;
+    btn.disabled = false;
+    setTimeout(() => { if (pill) pill.classList.remove('show'); }, 4000);
+    return;
+  }
+
+  // Comportamiento para Desktop / Android
+  if (canShareFiles() && fileArray.length > 0 && navigator.canShare && navigator.canShare({ files: fileArray })) {
     try {
-      if (pill) pill.textContent = `📲 Elige la app (${isFB ? 'Facebook' : 'WhatsApp'}) en el menú...`;
+      if (pill) pill.textContent = `📲 Elige la app (${isFB ? 'Facebook' : 'WhatsApp'})...`;
       await navigator.share({
         title: code,
         text: shareText,
@@ -1074,14 +1185,12 @@ async function shareSocial(d, btnTarget, platform = 'whatsapp') {
       if (pill) pill.textContent = `✅ Fotos y texto ${textName} listos para enviar`;
     } catch (shareErr) {
       if (shareErr.name === 'AbortError') {
-        if (pill) pill.textContent = textCopied ? `📋 Texto ${textName} copiado` : 'Cancelado por el usuario';
+        if (pill) pill.textContent = textCopied ? `📋 Texto ${textName} copiado` : 'Cancelado';
       } else {
-        console.warn('Share falló:', shareErr);
-        if (pill) pill.textContent = `${copyNotice}Mostrando enlaces...`;
-        if (cardEl) {
-          const linksList = cardEl.querySelector('.links-list');
-          if (linksList) linksList.style.display = 'block';
+        if (platform === 'whatsapp') {
+          window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank');
         }
+        if (pill) pill.textContent = `📋 Texto ${textName} copiado`;
       }
     }
   } else {
@@ -1092,6 +1201,9 @@ async function shareSocial(d, btnTarget, platform = 'whatsapp') {
       const filename = i === 0 ? `${code}_01_Portada.jpg` : `${code}_${numStr}_Foto.jpg`;
       await downloadDirectPhoto(list[i], filename);
       await new Promise(res => setTimeout(res, 400));
+    }
+    if (platform === 'whatsapp' && !isFB) {
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank');
     }
     if (pill) pill.textContent = `📋 Texto ${textName} copiado · Fotos descargadas`;
   }
@@ -1504,6 +1616,31 @@ if (drop && fileInput) {
   });
 }
 
+// Event Listeners para Modal iOS
+document.getElementById('iosModalCloseBtn')?.addEventListener('click', closeIOSShareModal);
+document.getElementById('iosShareModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'iosShareModal') closeIOSShareModal();
+});
+
+document.getElementById('iosModalShareBtn')?.addEventListener('click', async () => {
+  if (!currentIOSShareFiles || !currentIOSShareFiles.length) {
+    alert('No hay fotos cargadas.');
+    return;
+  }
+  if (canShareFiles()) {
+    try {
+      await navigator.share({ files: currentIOSShareFiles });
+      closeIOSShareModal();
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.warn('Error al compartir desde modal iOS:', err);
+      }
+    }
+  } else {
+    alert('Tu navegador no soporta compartir fotos directamente. Usa los enlaces de abajo para guardar cada foto.');
+  }
+});
+
 document.getElementById('resetDataBtn')?.addEventListener('click', async () => {
   if (confirm('¿Restablecer al data.json por defecto del servidor?')) {
     await clearStoredData();
@@ -1512,3 +1649,5 @@ document.getElementById('resetDataBtn')?.addEventListener('click', async () => {
 });
 
 initData();
+
+
