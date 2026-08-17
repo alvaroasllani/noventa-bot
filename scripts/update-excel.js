@@ -110,12 +110,18 @@ async function getLatestFileIdFromFolder(folderId, apiKey) {
 }
 
 function getColValue(row, ...possibleNames) {
-  const keys = Object.keys(row);
+  if (!row) return '';
+  if (!row._normalizedMap) {
+    const map = new Map();
+    for (const k of Object.keys(row)) {
+      map.set(k.trim().toLowerCase(), row[k]);
+    }
+    Object.defineProperty(row, '_normalizedMap', { value: map, enumerable: false, writable: true });
+  }
   for (const name of possibleNames) {
-    const target = name.trim().toLowerCase();
-    const foundKey = keys.find(k => k.trim().toLowerCase() === target);
-    if (foundKey && row[foundKey] !== undefined && row[foundKey] !== null) {
-      return String(row[foundKey]).trim();
+    const val = row._normalizedMap.get(name.trim().toLowerCase());
+    if (val !== undefined && val !== null) {
+      return String(val).trim();
     }
   }
   return '';

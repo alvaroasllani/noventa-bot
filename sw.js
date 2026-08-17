@@ -1,4 +1,4 @@
-const CACHE_NAME = 'descargadornova-v7';
+const CACHE_NAME = 'descargadornova-v8';
 const ASSETS = [
   './',
   './index.html',
@@ -33,20 +33,39 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
 
-  // Skip cross-origin chrome-extension or external analytics
+  // Skip cross-origin chrome-extension or external requests
   if (!url.origin.includes(self.location.hostname)) return;
 
-  // Network-First strategy: Siempre busca la versión más reciente en la red (GitHub/Vercel)
-  // Si está offline, sirve la copia en caché de respaldo.
-  e.respondWith(
-    fetch(e.request)
-      .then((res) => {
-        if (res.status === 200) {
-          const cacheCopy = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, cacheCopy));
-        }
-        return res;
+  // Stale-While-Revalidate for app static assets, Network-First for data.json
+  const isDataJson = url.pathname.endsWith('data.json');
+
+  if (isDataJson) {
+    e.respondWith(
+      fetch(e.request)
+        .then((res) => {
+          if (res && res.status === 200) {
+            const cacheCopy = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(e.request, cacheCopy));
+          }
+          return res;
+        })
+        .catch(() => caches.match(e.request))
+    );
+  } else {
+    e.respondWith(
+      caches.match(e.request).then((cachedRes) => {
+        const fetchPromise = fetch(e.request)
+          .then((networkRes) => {
+            if (networkRes && networkRes.status === 200) {
+              const cacheCopy = networkRes.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(e.request, cacheCopy));
+            }
+            return networkRes;
+          })
+          .catch(() => cachedRes);
+
+        return cachedRes || fetchPromise;
       })
-      .catch(() => caches.match(e.request))
-  );
+    );
+  }
 });

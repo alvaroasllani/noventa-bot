@@ -94,24 +94,38 @@ function resetBulkDownloadState() {
   }
 }
 
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function driveIdFromUrl(url) {
+  if (!url || typeof url !== 'string') return null;
   const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
   return m ? m[1] : null;
 }
 function driveDownloadUrl(id) {
-  return `https://drive.google.com/uc?export=download&id=${id}`;
+  if (!id || !/^[a-zA-Z0-9_-]{10,100}$/.test(id)) return '';
+  return `https://drive.google.com/uc?export=download&id=${encodeURIComponent(id)}`;
 }
 function triggerDownload(url) {
+  if (!url) return;
   const a = document.createElement('a');
   a.href = url;
   a.target = '_blank';
-  a.rel = 'noopener';
+  a.rel = 'noopener noreferrer';
   document.body.appendChild(a);
   a.click();
   a.remove();
 }
 function driveThumbUrl(id) {
-  return `https://drive.google.com/thumbnail?id=${id}&sz=w200`;
+  if (!id || !/^[a-zA-Z0-9_-]{10,100}$/.test(id)) return '';
+  return `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w200`;
 }
 
 function parsePhotos(str) {
@@ -1281,19 +1295,28 @@ function render(resetPagination = false) {
     const planGroup = d['planificador'] ?? d[FIELD.group] ?? d['UZGXo'];
     const planDay = d['diaPlanificador'] || d[FIELD.day] || d['a6X7r'] || '';
 
+    const codeStr = escapeHtml(codeFor(d));
+    const typeStr = escapeHtml(d[FIELD.type] || '');
+    const ofiStr = ofi ? `<span class="badge badge-ofi">${escapeHtml(ofi)}</span>` : '';
+    const titleStr = escapeHtml((d[FIELD.title] || 'Sin título').trim());
+    const zoneStr = escapeHtml(d[FIELD.zone] || '');
+    const currStr = escapeHtml(d[FIELD.currency] || '');
+    const priceStr = escapeHtml(d[FIELD.price] ?? '');
+    const thumbUrl = thumbId ? driveThumbUrl(thumbId) : '';
+
     const el = document.createElement('div');
     el.className = 'obj';
     el.innerHTML = `
       <div class="obj-head">
-        <div class="obj-thumb" style="background-image:url('${thumbId ? driveThumbUrl(thumbId) : ''}')"></div>
+        <div class="obj-thumb" style="background-image:url('${thumbUrl}')"></div>
         <div class="obj-info">
           <div class="obj-code">
-            <span class="code-badge">${codeFor(d)}</span>
-            <span class="badge">${d[FIELD.type] || ''}</span>
-            ${ofi ? `<span class="badge badge-ofi">${ofi}</span>` : ''}
+            <span class="code-badge">${codeStr}</span>
+            <span class="badge">${typeStr}</span>
+            ${ofiStr}
           </div>
-          <div class="obj-title">${(d[FIELD.title] || 'Sin título').trim()}</div>
-          <div class="obj-meta tabular-nums">${d[FIELD.zone] || ''} · ${d[FIELD.currency] || ''} ${d[FIELD.price] ?? ''} · ${count} foto${count === 1 ? '' : 's'}</div>
+          <div class="obj-title">${titleStr}</div>
+          <div class="obj-meta tabular-nums">${zoneStr} · ${currStr} ${priceStr} · ${count} foto${count === 1 ? '' : 's'}</div>
         </div>
       </div>
       <div class="obj-actions">
