@@ -891,6 +891,37 @@ function isIOS() {
   return /iPad|iPhone|iPod/.test(ua) || isTouchMac;
 }
 
+function isInIframe() {
+  try {
+    return window.self !== window.top;
+  } catch (e) {
+    return true;
+  }
+}
+
+function safeOpenUrl(url, target = '_blank') {
+  try {
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = target;
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      try { a.remove(); } catch (e) {}
+    }, 100);
+    return true;
+  } catch (e) {
+    try {
+      window.open(url, target);
+      return true;
+    } catch (err) {
+      console.warn('Error abriendo URL:', err);
+      return false;
+    }
+  }
+}
+
 function canShareFiles() {
   return typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 }
@@ -1126,9 +1157,9 @@ async function shareSocial(d, btnTarget, platform = 'whatsapp') {
   if (!list.length) {
     if (isIOS()) {
       if (platform === 'whatsapp') {
-        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank');
+        safeOpenUrl(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank');
       } else {
-        window.open('https://m.facebook.com/', '_blank');
+        safeOpenUrl('https://m.facebook.com/', '_blank');
       }
       if (pill) pill.textContent = `✅ Texto ${textName} copiado`;
     } else {
@@ -1137,13 +1168,18 @@ async function shareSocial(d, btnTarget, platform = 'whatsapp') {
           await navigator.share({ title: code, text: shareText });
           if (pill) pill.textContent = `✅ Compartido (${textName})`;
         } catch (e) {
-          if (pill) pill.textContent = `${copyNotice}Listo`;
+          if (platform === 'whatsapp') {
+            safeOpenUrl(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank');
+          } else {
+            safeOpenUrl('https://m.facebook.com/', '_blank');
+          }
+          if (pill) pill.textContent = `${copyNotice}Texto en portapapeles`;
         }
       } else {
         if (platform === 'whatsapp') {
-          window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank');
+          safeOpenUrl(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank');
         } else {
-          window.open('https://m.facebook.com/', '_blank');
+          safeOpenUrl('https://m.facebook.com/', '_blank');
         }
         if (pill) pill.textContent = `${copyNotice}Texto en portapapeles`;
       }
@@ -1214,9 +1250,15 @@ async function shareSocial(d, btnTarget, platform = 'whatsapp') {
         if (pill) pill.textContent = textCopied ? `📋 Texto ${textName} copiado` : 'Cancelado';
       } else {
         if (platform === 'whatsapp') {
-          window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank');
+          safeOpenUrl(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank');
+        } else {
+          safeOpenUrl('https://m.facebook.com/', '_blank');
         }
-        if (pill) pill.textContent = `📋 Texto ${textName} copiado`;
+        if (pill) {
+          pill.textContent = isInIframe()
+            ? `📋 Texto copiado · Para fotos usa "Abrir en Navegador" arriba`
+            : `📋 Texto ${textName} copiado`;
+        }
       }
     }
   } else {
@@ -1229,7 +1271,7 @@ async function shareSocial(d, btnTarget, platform = 'whatsapp') {
       await new Promise(res => setTimeout(res, 400));
     }
     if (platform === 'whatsapp' && !isFB) {
-      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank');
+      safeOpenUrl(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank');
     }
     if (pill) pill.textContent = `📋 Texto ${textName} copiado · Fotos descargadas`;
   }
@@ -1705,6 +1747,22 @@ document.getElementById('resetDataBtn')?.addEventListener('click', async () => {
   }
 });
 
+function checkEmbedMode() {
+  if (isInIframe()) {
+    const banner = document.getElementById('embedBanner');
+    const extBtn = document.getElementById('embedOpenExternalBtn');
+    if (banner) banner.style.display = 'block';
+    if (extBtn) {
+      extBtn.href = window.location.href;
+      extBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        safeOpenUrl(window.location.href, '_blank');
+      });
+    }
+  }
+}
+
 initData();
+checkEmbedMode();
 
 
