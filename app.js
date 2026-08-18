@@ -1254,11 +1254,7 @@ async function shareSocial(d, btnTarget, platform = 'whatsapp') {
         } else {
           safeOpenUrl('https://m.facebook.com/', '_blank');
         }
-        if (pill) {
-          pill.textContent = isInIframe()
-            ? `📋 Texto copiado · Para fotos usa "Abrir en Navegador" arriba`
-            : `📋 Texto ${textName} copiado`;
-        }
+        if (pill) pill.textContent = `📋 Texto ${textName} copiado`;
       }
     }
   } else {
@@ -1270,8 +1266,10 @@ async function shareSocial(d, btnTarget, platform = 'whatsapp') {
       await downloadDirectPhoto(list[i], filename);
       await new Promise(res => setTimeout(res, 400));
     }
-    if (platform === 'whatsapp' && !isFB) {
+    if (platform === 'whatsapp') {
       safeOpenUrl(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank');
+    } else if (platform === 'facebook') {
+      safeOpenUrl('https://m.facebook.com/', '_blank');
     }
     if (pill) pill.textContent = `📋 Texto ${textName} copiado · Fotos descargadas`;
   }
@@ -1747,22 +1745,6 @@ document.getElementById('resetDataBtn')?.addEventListener('click', async () => {
   }
 });
 
-function checkEmbedMode() {
-  if (isInIframe()) {
-    const banner = document.getElementById('embedBanner');
-    const extBtn = document.getElementById('embedOpenExternalBtn');
-    if (banner) banner.style.display = 'block';
-    if (extBtn) {
-      extBtn.href = window.location.href;
-      extBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        safeOpenUrl(window.location.href, '_blank');
-      });
-    }
-  }
-}
-
 initData();
-checkEmbedMode();
 
 
