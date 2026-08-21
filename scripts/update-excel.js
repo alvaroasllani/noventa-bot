@@ -52,7 +52,7 @@ async function getLatestFileIdFromFolder(folderId, apiKey) {
       const jsonText = await fetchText(apiUrl);
       const data = JSON.parse(jsonText);
       if (data.files && data.files.length > 0) {
-        const xlsxFile = data.files.find(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls') || (f.mimeType && f.mimeType.includes('spreadsheet')));
+        const xlsxFile = data.files.find(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls') || f.name.endsWith('.csv') || (f.mimeType && (f.mimeType.includes('spreadsheet') || f.mimeType.includes('csv'))));
         if (xlsxFile) {
           console.log(`📌 Archivo más reciente encontrado vía API: ${xlsxFile.name} (Modificado: ${xlsxFile.modifiedTime})`);
           return xlsxFile.id;
