@@ -381,7 +381,6 @@ function loadData(text, isUserUpload = false) {
   });
 
   populateSelect(document.getElementById('opFilter'), ops, 'Operación (todas)');
-  populateSelect(document.getElementById('typeFilter'), types, 'Tipo (todos)');
   populateSelect(document.getElementById('zoneFilter'), zones, 'Zona (todas)');
   populateSelect(document.getElementById('ofiFilter'), ofis, 'Oficina Broker (todas)');
   updateEquipoDropdown();
@@ -738,7 +737,6 @@ function currentFiltered() {
   const search = rawSearch.toLowerCase();
   const activeOpBtn = document.querySelector('#opSegmentedControl .segment-btn.active');
   const op = activeOpBtn ? (activeOpBtn.dataset.op || '') : (document.getElementById('opFilter')?.value || '');
-  const type = document.getElementById('typeFilter')?.value || '';
   const zone = document.getElementById('zoneFilter')?.value || '';
   const ofi = document.getElementById('ofiFilter')?.value || '';
   const equipo = document.getElementById('equipoFilter')?.value || '';
@@ -768,7 +766,6 @@ function currentFiltered() {
     if (d[FIELD.status] === 'Cerrada') return false;
 
     if (op && d[FIELD.op] !== op) return false;
-    if (type && d[FIELD.type] !== type) return false;
     if (zone && d[FIELD.zone] !== zone) return false;
     if (ofi && (d['ofiBroker'] || d['Ofi BROKER'] || '') !== ofi) return false;
     if (equipo && (d['equipoBroker'] || d['Eq Broker '] || d['Equipo Broker'] || '') !== equipo) return false;
@@ -1610,7 +1607,7 @@ document.querySelectorAll('#opSegmentedControl .segment-btn').forEach(btn => {
 });
 
 // Selects con highlight al tener valor seleccionado
-['typeFilter', 'zoneFilter', 'ofiFilter', 'equipoFilter', 'consignadorFilter'].forEach(id => {
+['zoneFilter', 'ofiFilter', 'equipoFilter', 'consignadorFilter'].forEach(id => {
   const sel = document.getElementById(id);
   if (sel) {
     sel.addEventListener('change', () => {
@@ -1636,7 +1633,7 @@ document.getElementById('resetFiltersBtn')?.addEventListener('click', () => {
   });
 
   // Reset selects
-  ['typeFilter', 'zoneFilter', 'ofiFilter', 'equipoFilter', 'consignadorFilter'].forEach(id => {
+  ['zoneFilter', 'ofiFilter', 'equipoFilter', 'consignadorFilter'].forEach(id => {
     const sel = document.getElementById(id);
     if (sel) {
       sel.value = '';
