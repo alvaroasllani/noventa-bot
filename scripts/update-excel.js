@@ -154,9 +154,9 @@ async function main() {
     process.exit(1);
   }
 
-  console.log('🔄 Leyendo y convirtiendo Excel a data.json...');
+  console.log('🔄 Leyendo y convirtiendo archivo a data.json...');
   const fileBuffer = fs.readFileSync(fileToRead);
-  const wb = XLSX.read(fileBuffer);
+  const wb = XLSX.read(fileBuffer, { type: 'buffer', codepage: 65001, raw: false });
   const sheet = wb.Sheets[wb.SheetNames[0]];
   const rawExcel = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
