@@ -127,6 +127,74 @@ function getColValue(row, ...possibleNames) {
   return '';
 }
 
+function parseCSV(csvText) {
+  if (csvText.charCodeAt(0) === 0xFEFF) {
+    csvText = csvText.slice(1);
+  }
+  const rows = [];
+  let currentRow = [];
+  let currentVal = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < csvText.length; i++) {
+    const char = csvText[i];
+    const nextChar = csvText[i + 1];
+    
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        currentVal += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      currentRow.push(currentVal);
+      currentVal = '';
+    } else if ((char === '\r' || char === '\n') && !inQuotes) {
+      if (char === '\r' && nextChar === '\n') {
+        i++;
+      }
+      currentRow.push(currentVal);
+      currentVal = '';
+      if (currentRow.length > 1 || (currentRow.length === 1 && currentRow[0] !== '')) {
+        rows.push(currentRow);
+      }
+      currentRow = [];
+    } else {
+      currentVal += char;
+    }
+  }
+  if (currentVal !== '' || currentRow.length > 0) {
+    currentRow.push(currentVal);
+    rows.push(currentRow);
+  }
+  if (rows.length === 0) return [];
+  const headers = rows[0].map(h => h.trim());
+  return rows.slice(1).map(row => {
+    const obj = {};
+    headers.forEach((h, idx) => {
+      obj[h] = row[idx] !== undefined ? row[idx] : '';
+    });
+    return obj;
+  });
+}
+
+function parseExcelOrCsv(fileBuffer) {
+  // Check if buffer is zip/xlsx (PK magic header: 0x50 0x4B 0x03 0x04) or OLE/xls (0xD0 0xCF 0x11 0xE0)
+  const isZipXlsx = fileBuffer.length >= 4 && fileBuffer[0] === 0x50 && fileBuffer[1] === 0x4B && fileBuffer[2] === 0x03 && fileBuffer[3] === 0x04;
+  const isOleXls = fileBuffer.length >= 4 && fileBuffer[0] === 0xD0 && fileBuffer[1] === 0xCF && fileBuffer[2] === 0x11 && fileBuffer[3] === 0xE0;
+
+  if (isZipXlsx || isOleXls) {
+    const wb = XLSX.read(fileBuffer, { type: 'buffer', codepage: 65001, raw: false });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(sheet, { defval: '' });
+  }
+
+  // Otherwise, treat as UTF-8 CSV
+  const csvText = fileBuffer.toString('utf8');
+  return parseCSV(csvText);
+}
+
 async function main() {
   let fileToRead = '';
   let targetFileId = DRIVE_FILE_ID;
@@ -142,7 +210,7 @@ async function main() {
   }
 
   if (targetFileId) {
-    console.log(`📥 Descargando Excel desde Google Drive (ID: ${targetFileId})...`);
+    console.log(`📥 Descargando archivo desde Google Drive (ID: ${targetFileId})...`);
     const downloadUrl = `https://docs.google.com/uc?export=download&id=${targetFileId}`;
     await downloadFile(downloadUrl, TEMP_XLSX);
     fileToRead = TEMP_XLSX;
@@ -156,19 +224,39 @@ async function main() {
 
   console.log('🔄 Leyendo y convirtiendo archivo a data.json...');
   const fileBuffer = fs.readFileSync(fileToRead);
-  const wb = XLSX.read(fileBuffer, { type: 'buffer', codepage: 65001, raw: false });
-  const sheet = wb.Sheets[wb.SheetNames[0]];
-  const rawExcel = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+  const rawExcel = parseExcelOrCsv(fileBuffer);
+
+  // Cargar mapa previo para preservar planificador/día si no vienen en el nuevo CSV
+  const prevDataMap = new Map();
+  if (fs.existsSync(TARGET_JSON)) {
+    try {
+      const prevJson = JSON.parse(fs.readFileSync(TARGET_JSON, 'utf-8'));
+      if (prevJson && prevJson.rows) {
+        prevJson.rows.forEach(r => {
+          if (r && r.data) {
+            const c = (r.data.mERYr || '') + '_' + (r.data.lak0f || '');
+            const title = (r.data['5kIsO'] || '').trim().toLowerCase();
+            if (r.data.planificador || r.data.diaPlanificador) {
+              prevDataMap.set(c, { planificador: r.data.planificador, diaPlanificador: r.data.diaPlanificador });
+              if (title) prevDataMap.set(title, { planificador: r.data.planificador, diaPlanificador: r.data.diaPlanificador });
+            }
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('⚠️ No se pudo leer data.json previo para respaldo de planificador:', e.message);
+    }
+  }
 
   const PREFIX_OP = { ALQ: 'ALQUILER', VEN: 'VENTA', PREV: 'PREVENTA', ANT: 'ANTICRETICO', ENTR: 'ENTREGA INMEDIATA', PROF: 'PROF / LOCAL' };
   
   const jsonRows = rawExcel.map(r => {
-    const code = getColValue(r, 'Ncodigo', 'ncodigo', 'Codigo');
+    const code = getColValue(r, 'Ncodigo', 'ncodigo', 'Codigo', 'codigo', 'odigo', 'ID', 'id');
     const m = code.match(/^([A-Z]+)(\d+)$/);
     const prefix = m ? m[1] : '';
     const num = m ? parseInt(m[2], 10) : '';
-    const op = PREFIX_OP[prefix] || 'VENTA';
-    const tempImgRaw = getColValue(r, 'TempImg', 'tempimg', 'Imagenes', 'Fotos');
+    const op = PREFIX_OP[prefix] || getColValue(r, 'Operacion', 'operacion', 'Operación', 'mERYr') || 'VENTA';
+    const tempImgRaw = getColValue(r, 'TempImg', 'tempimg', 'Imagenes', 'imagenes', 'Fotos', 'fotos');
     const imgs = tempImgRaw.split(',').map(s => s.trim()).filter(Boolean);
     const cover = imgs[0] || '';
     const gallery = imgs.slice(1).join(', ');
@@ -178,26 +266,39 @@ async function main() {
     const disponibleRaw = getColValue(r, 'DISPONIBLE', 'disponible', 'Disponible');
     const isAvailable = disponibleRaw.toLowerCase() === 'si' && !isEx;
 
-    const ofiBroker = getColValue(r, 'Ofi BROKER', 'ofi broker', 'Oficina Broker', 'Oficina');
-    const planificadorRaw = getColValue(r, 'Planificador', 'planificador', 'Grupo Planificador');
-    const planificador = planificadorRaw ? parseInt(planificadorRaw, 10) || planificadorRaw : '';
-    const diaPlanificador = getColValue(r, 'Dia planificador', 'dia planificador', 'Dia');
-    const equipoBroker = getColValue(r, 'Eq Broker ', 'eq broker', 'equipo broker', 'Equipo Broker', 'Equipo');
-    const consignador = getColValue(r, 'Consignador', 'consignador', 'Consignatario');
+    const ofiBroker = getColValue(r, 'Ofi BROKER', 'ofi broker', 'Oficina Broker', 'Oficina', 'oficina');
+    const planificadorRaw = getColValue(r, 'Planificador', 'planificador', 'Grupo Planificador', 'grupo planificador', 'Grupo', 'grupo');
+    let planificador = planificadorRaw ? parseInt(planificadorRaw, 10) || planificadorRaw : '';
+    let diaPlanificador = getColValue(r, 'Dia planificador', 'dia planificador', 'Dia', 'dia', 'Día', 'día', 'Day', 'day');
+
+    const equipoBroker = getColValue(r, 'Team', 'team', 'TEAM', 'Eq Broker ', 'Eq Broker', 'eq broker', 'equipo broker', 'Equipo Broker', 'Equipo', 'equipo');
+    const consignador = getColValue(r, 'Consignador', 'consignador', 'Consignatario', 'consignatario');
+    const propTitle = getColValue(r, 'Propiedad', 'propiedad', 'Titulo', 'titulo');
+
+    // Respaldo de planificador si no vino en el CSV exportado
+    if (!planificador || !diaPlanificador) {
+      const key1 = op + '_' + num;
+      const key2 = propTitle.trim().toLowerCase();
+      const prev = prevDataMap.get(key1) || (key2 ? prevDataMap.get(key2) : null);
+      if (prev) {
+        if (!planificador && prev.planificador) planificador = prev.planificador;
+        if (!diaPlanificador && prev.diaPlanificador) diaPlanificador = prev.diaPlanificador;
+      }
+    }
 
     return {
       data: {
         mERYr: op,
         oHoAu: getColValue(r, 'Tipo', 'tipo'),
         WIoeb: getColValue(r, 'Zona', 'zona'),
-        '5kIsO': getColValue(r, 'Propiedad', 'propiedad', 'Titulo'),
-        GRkSW: getColValue(r, 'preciofinal', 'precio final', 'Precio'),
+        '5kIsO': propTitle,
+        GRkSW: getColValue(r, 'preciofinal', 'precio final', 'Precio', 'precio'),
         lak0f: num,
         '0C9DE': cover,
         '7fYNu': gallery,
         '34Af3': isAvailable ? 'si' : 'no',
-        vDBia: getColValue(r, 'Txt Catalogo', 'txt catalogo', 'Catalogo') || getColValue(r, 'Txt Facebook', 'txt facebook'),
-        abzcW: getColValue(r, 'Txt Facebook', 'txt facebook') || getColValue(r, 'Txt Catalogo', 'txt catalogo'),
+        vDBia: getColValue(r, 'Txt Catalogo', 'txt catalogo', 'Catalogo', 'catalogo') || getColValue(r, 'Txt Facebook', 'txt facebook', 'Facebook', 'facebook'),
+        abzcW: getColValue(r, 'Txt Facebook', 'txt facebook', 'Facebook', 'facebook') || getColValue(r, 'Txt Catalogo', 'txt catalogo', 'Catalogo', 'catalogo'),
         PJe5x: cargo ? (isEx ? `Ex (${cargo})` : cargo) : '',
         Cargo: cargo,
         ofiBroker: ofiBroker,
@@ -227,7 +328,7 @@ async function main() {
   }
 
   if (oldJsonStr.trim() === newJsonStr.trim()) {
-    console.log('✅ No se detectaron cambios en el Excel.');
+    console.log('✅ No se detectaron cambios en el archivo.');
   } else {
     fs.writeFileSync(TARGET_JSON, newJsonStr, 'utf-8');
     console.log(`✨ data.json actualizado correctamente con ${jsonRows.length} propiedades.`);
