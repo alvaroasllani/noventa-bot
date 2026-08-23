@@ -197,28 +197,66 @@ function parseExcelOrCsv(fileBuffer) {
 
 async function main() {
   let fileToRead = '';
-  let targetFileId = DRIVE_FILE_ID;
+  const customArg = process.argv[2];
+  const ROOT_CSV24 = path.join(__dirname, '..', 'Propiedades (24).csv');
+  const ROOT_CSV = path.join(__dirname, '..', 'Propiedades.csv');
 
-  if (DRIVE_FOLDER_ID) {
-    console.log(`📂 Buscando el archivo Excel más reciente dentro de la carpeta Drive ID: ${DRIVE_FOLDER_ID}...`);
-    const folderLatestId = await getLatestFileIdFromFolder(DRIVE_FOLDER_ID, DRIVE_API_KEY);
-    if (folderLatestId) {
-      targetFileId = folderLatestId;
-    } else {
-      console.log('⚠️ No se pudo resolver automáticamente el archivo desde la carpeta, usando DRIVE_FILE_ID de respaldo.');
+  if (customArg && fs.existsSync(customArg)) {
+    console.log(`📂 Usando archivo especificado: ${customArg}...`);
+    fileToRead = customArg;
+  } else if (process.env.CI || process.env.FORCE_DRIVE) {
+    if (DRIVE_FOLDER_ID) {
+      console.log(`📂 Buscando el archivo Excel más reciente dentro de la carpeta Drive ID: ${DRIVE_FOLDER_ID}...`);
+      const folderLatestId = await getLatestFileIdFromFolder(DRIVE_FOLDER_ID, DRIVE_API_KEY);
+      if (folderLatestId) {
+        targetFileId = folderLatestId;
+      } else {
+        console.log('⚠️ No se pudo resolver automáticamente el archivo desde la carpeta, usando DRIVE_FILE_ID de respaldo.');
+      }
     }
-  }
 
-  if (targetFileId) {
-    console.log(`📥 Descargando archivo desde Google Drive (ID: ${targetFileId})...`);
-    const downloadUrl = `https://docs.google.com/uc?export=download&id=${targetFileId}`;
-    await downloadFile(downloadUrl, TEMP_XLSX);
-    fileToRead = TEMP_XLSX;
+    if (targetFileId) {
+      console.log(`📥 Descargando archivo desde Google Drive (ID: ${targetFileId})...`);
+      const downloadUrl = `https://docs.google.com/uc?export=download&id=${targetFileId}`;
+      await downloadFile(downloadUrl, TEMP_XLSX);
+      fileToRead = TEMP_XLSX;
+    } else if (fs.existsSync(ROOT_CSV24)) {
+      console.log('📂 Usando Propiedades (24).csv local...');
+      fileToRead = ROOT_CSV24;
+    } else if (fs.existsSync(ROOT_CSV)) {
+      console.log('📂 Usando Propiedades.csv local...');
+      fileToRead = ROOT_CSV;
+    } else if (fs.existsSync(ROOT_XLSX)) {
+      console.log('📂 Usando Propiedades.xlsx local...');
+      fileToRead = ROOT_XLSX;
+    }
+  } else if (fs.existsSync(ROOT_CSV24)) {
+    console.log('📂 Usando Propiedades (24).csv local...');
+    fileToRead = ROOT_CSV24;
+  } else if (fs.existsSync(ROOT_CSV)) {
+    console.log('📂 Usando Propiedades.csv local...');
+    fileToRead = ROOT_CSV;
   } else if (fs.existsSync(ROOT_XLSX)) {
     console.log('📂 Usando Propiedades.xlsx local...');
     fileToRead = ROOT_XLSX;
-  } else {
-    console.error('❌ ERROR: No se encontró DRIVE_FOLDER_ID, DRIVE_FILE_ID ni el archivo local Propiedades.xlsx.');
+  } else if (DRIVE_FOLDER_ID || DRIVE_FILE_ID) {
+    if (DRIVE_FOLDER_ID) {
+      console.log(`📂 Buscando el archivo Excel más reciente dentro de la carpeta Drive ID: ${DRIVE_FOLDER_ID}...`);
+      const folderLatestId = await getLatestFileIdFromFolder(DRIVE_FOLDER_ID, DRIVE_API_KEY);
+      if (folderLatestId) {
+        targetFileId = folderLatestId;
+      }
+    }
+    if (targetFileId) {
+      console.log(`📥 Descargando archivo desde Google Drive (ID: ${targetFileId})...`);
+      const downloadUrl = `https://docs.google.com/uc?export=download&id=${targetFileId}`;
+      await downloadFile(downloadUrl, TEMP_XLSX);
+      fileToRead = TEMP_XLSX;
+    }
+  }
+
+  if (!fileToRead) {
+    console.error('❌ ERROR: No se encontró ningún archivo para procesar.');
     process.exit(1);
   }
 
@@ -266,6 +304,12 @@ async function main() {
     const disponibleRaw = getColValue(r, 'DISPONIBLE', 'disponible', 'Disponible');
     const isAvailable = disponibleRaw.toLowerCase() === 'si' && !isEx;
 
+    const reservadoRaw = getColValue(r, 'Reservado', 'reservado', 'Reserva', 'reserva');
+    const isReserved = /^(true|si)$/i.test(reservadoRaw.trim());
+
+    const actPrecioRaw = getColValue(r, 'Actualizacion precio', 'actualizacion precio', 'Actualización precio', 'actualización precio', 'Actualizacion', 'actualizacion', 'Actualización', 'actualización');
+    const isActPrecio = /^(true|si)$/i.test(actPrecioRaw.trim());
+
     const ofiBroker = getColValue(r, 'Ofi BROKER', 'ofi broker', 'Oficina Broker', 'Oficina', 'oficina');
     const planificadorRaw = getColValue(r, 'Planificador', 'planificador', 'Grupo Planificador', 'grupo planificador', 'Grupo', 'grupo');
     let planificador = planificadorRaw ? parseInt(planificadorRaw, 10) || planificadorRaw : '';
@@ -307,12 +351,26 @@ async function main() {
         diaPlanificador: diaPlanificador,
         a6X7r: diaPlanificador,
         equipoBroker: equipoBroker,
-        consignador: consignador
+        consignador: consignador,
+        reservado: isReserved ? 'si' : 'no',
+        Reservado: isReserved ? 'si' : 'no',
+        actualizacionPrecio: isActPrecio ? 'si' : 'no',
+        'Actualizacion precio': isActPrecio ? 'si' : 'no'
       }
     };
   });
 
-  const newJsonStr = JSON.stringify({ rows: jsonRows }, null, 2);
+  const baseFileName = path.basename(fileToRead);
+  const versionMatch = baseFileName.match(/\((\d+)\)/) || baseFileName.match(/v?(\d+)/);
+  const csvVersion = versionMatch ? `CSV #${versionMatch[1]}` : (baseFileName.toLowerCase().endsWith('.csv') ? 'CSV' : 'Excel');
+
+  const newJsonStr = JSON.stringify({
+    version: csvVersion,
+    sourceFile: baseFileName,
+    updatedAt: new Date().toISOString(),
+    totalRows: jsonRows.length,
+    rows: jsonRows
+  }, null, 2);
   
   let oldJsonStr = '';
   if (fs.existsSync(TARGET_JSON)) {

@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
   <title>NovaBot</title>
   <meta name="description" content="NovaBot - Plataforma de búsqueda, catálogo y descarga de propiedades inmobiliarias NovaHaus.">
   <meta name="referrer" content="strict-origin-when-cross-origin">
@@ -39,6 +39,13 @@
       </div>
 
       <div class="header-actions">
+        <div id="dataTimestampPill" class="data-timestamp-pill" title="Versión y última actualización" style="display:none;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span id="dataTimestampText">Cargando...</span>
+        </div>
         <button id="reloadPageBtn" class="icon-btn" aria-label="Recargar página" title="Recargar página">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
             stroke-linecap="round" stroke-linejoin="round">
@@ -129,14 +136,14 @@
           </div>
         </div>
 
-        <!-- Filtro Desplegable Secundario (Tipo, Zona, Oficina Broker) -->
+        <!-- Filtro Desplegable Secundario (Tipo, Zona, Oficina Broker, Reserva, Actualización) -->
         <details id="secondaryFiltersDetails" class="secondary-filters-details">
           <summary class="secondary-filters-summary">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
               stroke-linecap="round" stroke-linejoin="round" class="panel-icon">
               <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
             </svg>
-            <span>Filtros (Zona, Oficina, Equipo, Consignador)</span>
+            <span>Filtros (Zona, Oficina, Equipo, Consignador, Reserva, Precio)</span>
           </summary>
           <div class="compact-selects-grid">
             <div class="select-field-wrapper">
@@ -157,6 +164,20 @@
             <div class="select-field-wrapper">
               <select id="consignadorFilter" class="filter-select">
                 <option value="">Consignador (todos)</option>
+              </select>
+            </div>
+            <div class="select-field-wrapper">
+              <select id="reservaFilter" class="filter-select">
+                <option value="no" selected>Ocultar reservadas</option>
+                <option value="todas">Reserva (todas)</option>
+                <option value="si">Solo reservadas</option>
+              </select>
+            </div>
+            <div class="select-field-wrapper">
+              <select id="actualizacionFilter" class="filter-select">
+                <option value="" selected>Actualización precio (todas)</option>
+                <option value="si">Solo por actualizar precio</option>
+                <option value="no">Sin actualización pendiente</option>
               </select>
             </div>
           </div>

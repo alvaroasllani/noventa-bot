@@ -56,7 +56,9 @@ const FIELD = {
   equipoBroker: 'equipoBroker',
   catalog: 'vDBia',    // Texto catálogo de la propiedad
   facebook: 'abzcW',   // Texto Facebook de la propiedad
-  consignador: 'consignador'
+  consignador: 'consignador',
+  reservado: 'reservado',
+  actualizacionPrecio: 'actualizacionPrecio'
 };
 
 const PREFIX = {
@@ -352,7 +354,70 @@ function updateConsignadorDropdown() {
   }
 }
 
-function loadData(text, isUserUpload = false) {
+function updateHeaderDataTimestamp(version, updatedAt, sourceFile) {
+  const pill = document.getElementById('dataTimestampPill');
+  const textEl = document.getElementById('dataTimestampText');
+  if (!pill || !textEl) return;
+
+  let timeStr = '';
+  let fullDateStr = '';
+  if (updatedAt) {
+    const d = new Date(updatedAt);
+    if (!isNaN(d.getTime())) {
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      timeStr = `${hh}:${mm}`;
+      fullDateStr = `${d.toLocaleDateString()} ${timeStr}`;
+    }
+  }
+
+  const fileLabel = version || (sourceFile ? sourceFile.replace(/\.(csv|xlsx|xls|json)$/i, '') : 'CSV');
+  const label = timeStr ? `${fileLabel} · ${timeStr}` : fileLabel;
+  textEl.textContent = label;
+
+  const tooltipParts = [];
+  if (version) tooltipParts.push(`Versión: ${version}`);
+  if (sourceFile) tooltipParts.push(`Archivo: ${sourceFile}`);
+  if (fullDateStr) tooltipParts.push(`Última sincronización: ${fullDateStr}`);
+  if (ROWS && ROWS.length) tooltipParts.push(`Total registros: ${ROWS.length}`);
+
+  pill.title = tooltipParts.join('\n') || 'Información de datos sincronizados';
+  pill.style.display = 'inline-flex';
+}
+
+function updateActiveFiltersIndicator() {
+  const resetBtn = document.getElementById('resetFiltersBtn');
+  if (!resetBtn) return;
+
+  const rawSearch = (document.getElementById('searchInput')?.value || '').trim();
+  const activeOpBtn = document.querySelector('#opSegmentedControl .segment-btn.active');
+  const op = activeOpBtn ? (activeOpBtn.dataset.op || '') : '';
+  const zone = document.getElementById('zoneFilter')?.value || '';
+  const ofi = document.getElementById('ofiFilter')?.value || '';
+  const equipo = document.getElementById('equipoFilter')?.value || '';
+  const consignador = document.getElementById('consignadorFilter')?.value || '';
+  const reserva = document.getElementById('reservaFilter')?.value || 'no';
+  const actualizacion = document.getElementById('actualizacionFilter')?.value || '';
+  const hasDay = Boolean(document.querySelector('#dayChips .chip.active'));
+  const hasGroup = document.querySelectorAll('#groupChecks input:checked').length > 0;
+
+  const isAnyFilterActive = Boolean(
+    rawSearch ||
+    op ||
+    zone ||
+    ofi ||
+    equipo ||
+    consignador ||
+    reserva !== 'no' ||
+    actualizacion !== '' ||
+    hasDay ||
+    hasGroup
+  );
+
+  resetBtn.classList.toggle('has-active-filters', isAnyFilterActive);
+}
+
+function loadData(text, isUserUpload = false, customMeta = null) {
   let json;
   try {
     json = JSON.parse(text);
@@ -362,6 +427,11 @@ function loadData(text, isUserUpload = false) {
   }
   const rows = json.rows || json;
   ROWS = (Array.isArray(rows) ? rows : []).map(r => r.data || r).filter(d => d && d[FIELD.op]);
+
+  const version = json.version || (customMeta && customMeta.version) || (isUserUpload ? 'Personalizado' : 'CSV');
+  const updatedAt = json.updatedAt || (customMeta && customMeta.date ? customMeta.date : null);
+  const sourceFile = json.sourceFile || (customMeta && customMeta.fileName ? customMeta.fileName : '');
+  updateHeaderDataTimestamp(version, updatedAt, sourceFile);
 
   document.getElementById('filtersCard').style.display = 'block';
   document.getElementById('opSegmentedBar').style.display = 'flex';
@@ -449,7 +519,7 @@ async function initData() {
 
   const custom = await getStoredData();
   if (custom && custom.text) {
-    const ok = loadData(custom.text, false);
+    const ok = loadData(custom.text, false, custom);
     if (ok) {
       const d = new Date(custom.date);
       const fDate = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -595,6 +665,12 @@ async function handleUserFileUpload(file) {
           const equipoBroker = getVal('Eq Broker ', 'eq broker', 'equipo broker', 'Equipo Broker');
           const consignador = getVal('Consignador', 'consignador', 'Consignatario');
 
+          const reservadoRaw = getVal('Reservado', 'reservado', 'Reserva', 'reserva');
+          const isReserved = /^(true|si)$/i.test(reservadoRaw.trim());
+
+          const actPrecioRaw = getVal('Actualizacion precio', 'actualizacion precio', 'Actualización precio', 'actualización precio', 'Actualizacion', 'actualizacion', 'Actualización', 'actualización');
+          const isActPrecio = /^(true|si)$/i.test(actPrecioRaw.trim());
+
           return {
             data: {
               mERYr: op,
@@ -616,18 +692,31 @@ async function handleUserFileUpload(file) {
               diaPlanificador: diaPlanificador,
               a6X7r: diaPlanificador,
               equipoBroker: equipoBroker,
-              consignador: consignador
+              consignador: consignador,
+              reservado: isReserved ? 'si' : 'no',
+              Reservado: isReserved ? 'si' : 'no',
+              actualizacionPrecio: isActPrecio ? 'si' : 'no',
+              'Actualizacion precio': isActPrecio ? 'si' : 'no'
             }
           };
         });
 
-        const jsonStr = JSON.stringify({ rows: jsonRows });
-        const ok = loadData(jsonStr, true);
+        const versionMatch = file.name.match(/\((\d+)\)/) || file.name.match(/v?(\d+)/);
+        const versionLabel = versionMatch ? `CSV #${versionMatch[1]}` : file.name;
+        const now = new Date();
+
+        const jsonStr = JSON.stringify({
+          version: versionLabel,
+          sourceFile: file.name,
+          updatedAt: now.toISOString(),
+          totalRows: jsonRows.length,
+          rows: jsonRows
+        });
+        const ok = loadData(jsonStr, true, { version: versionLabel, fileName: file.name, date: now.toISOString() });
         if (ok) {
           await setStoredData(jsonStr, file.name);
           const statText = document.getElementById('fileStatText');
           const resetBtn = document.getElementById('resetDataBtn');
-          const now = new Date();
           const fDate = now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           statText.innerHTML = `✅ <b>${file.name} subido y guardado en la app</b> (${ROWS.length} objetos · ${fDate})`;
           resetBtn.style.display = 'inline-flex';
@@ -643,12 +732,14 @@ async function handleUserFileUpload(file) {
   const reader = new FileReader();
   reader.onload = async ev => {
     const text = ev.target.result;
-    const ok = loadData(text, true);
+    const now = new Date();
+    const versionMatch = file.name.match(/\((\d+)\)/) || file.name.match(/v?(\d+)/);
+    const versionLabel = versionMatch ? `CSV #${versionMatch[1]}` : file.name;
+    const ok = loadData(text, true, { version: versionLabel, fileName: file.name, date: now.toISOString() });
     if (ok) {
       await setStoredData(text, file.name);
       const statText = document.getElementById('fileStatText');
       const resetBtn = document.getElementById('resetDataBtn');
-      const now = new Date();
       const fDate = now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       statText.innerHTML = `✅ <b>Nuevo archivo subido y guardado localmente</b> (${ROWS.length} objetos · ${fDate})`;
       resetBtn.style.display = 'inline-flex';
@@ -741,6 +832,8 @@ function currentFiltered() {
   const ofi = document.getElementById('ofiFilter')?.value || '';
   const equipo = document.getElementById('equipoFilter')?.value || '';
   const consignadorFilter = document.getElementById('consignadorFilter')?.value || '';
+  const reservaFilter = document.getElementById('reservaFilter')?.value || 'no';
+  const actualizacionFilter = document.getElementById('actualizacionFilter')?.value || '';
   
   const checkedGroups = [...document.querySelectorAll('#groupChecks input:checked')].map(i => String(i.value));
   const activeDayEl = document.querySelector('#dayChips .chip.active input');
@@ -753,6 +846,9 @@ function currentFiltered() {
     const cargo = String(d['Cargo'] || d[FIELD.agent] || '').trim();
     const isExCargo = /^ex/i.test(cargo);
 
+    const isReserved = String(d[FIELD.reservado] || d['reservado'] || d['Reservado'] || '').toLowerCase() === 'si' || String(d[FIELD.reservado] || d['reservado'] || d['Reservado'] || '').toLowerCase() === 'true';
+    const isActPrecio = String(d[FIELD.actualizacionPrecio] || d['actualizacionPrecio'] || d['Actualizacion precio'] || d['actualizacion'] || '').toLowerCase() === 'si' || String(d[FIELD.actualizacionPrecio] || d['actualizacionPrecio'] || d['Actualizacion precio'] || d['actualizacion'] || '').toLowerCase() === 'true';
+
     if (search) {
       if (!code.includes(search) && !title.includes(search) && !zoneVal.includes(search)) return false;
       return true;
@@ -764,6 +860,14 @@ function currentFiltered() {
 
     // Regla obligatoria: Excluir cerradas
     if (d[FIELD.status] === 'Cerrada') return false;
+
+    // Filtro de Reserva: Por defecto 'no' (oculta reservadas), 'si' (solo reservadas), 'todas' (incluye todas)
+    if (reservaFilter === 'no' && isReserved) return false;
+    if (reservaFilter === 'si' && !isReserved) return false;
+
+    // Filtro de Actualización de Precio: Por defecto '' (todas), 'si' (solo pendientes de precio), 'no' (sin actualización pendiente)
+    if (actualizacionFilter === 'si' && !isActPrecio) return false;
+    if (actualizacionFilter === 'no' && isActPrecio) return false;
 
     if (op && d[FIELD.op] !== op) return false;
     if (zone && d[FIELD.zone] !== zone) return false;
@@ -1283,6 +1387,8 @@ function render(resetPagination = false) {
     VISIBLE_COUNT = PAGE_SIZE;
   }
 
+  updateActiveFiltersIndicator();
+
   const list = currentFiltered();
   const visibleList = list.slice(0, VISIBLE_COUNT);
 
@@ -1332,9 +1438,14 @@ function render(resetPagination = false) {
     const planGroup = d['planificador'] ?? d[FIELD.group] ?? d['UZGXo'];
     const planDay = d['diaPlanificador'] || d[FIELD.day] || d['a6X7r'] || '';
 
+    const isReserved = String(d[FIELD.reservado] || d['reservado'] || d['Reservado'] || '').toLowerCase() === 'si' || String(d[FIELD.reservado] || d['reservado'] || d['Reservado'] || '').toLowerCase() === 'true';
+    const isActPrecio = String(d[FIELD.actualizacionPrecio] || d['actualizacionPrecio'] || d['Actualizacion precio'] || d['actualizacion'] || '').toLowerCase() === 'si' || String(d[FIELD.actualizacionPrecio] || d['actualizacionPrecio'] || d['Actualizacion precio'] || d['actualizacion'] || '').toLowerCase() === 'true';
+
     const codeStr = escapeHtml(codeFor(d));
     const typeStr = escapeHtml(d[FIELD.type] || '');
     const ofiStr = ofi ? `<span class="badge badge-ofi">${escapeHtml(ofi)}</span>` : '';
+    const resStr = isReserved ? `<span class="badge badge-reserva">🏷️ Reservado</span>` : '';
+    const actStr = isActPrecio ? `<span class="badge badge-actualizacion">⚠️ Actualizar precio</span>` : '';
     const titleStr = escapeHtml((d[FIELD.title] || 'Sin título').trim());
     const zoneStr = escapeHtml(d[FIELD.zone] || '');
     const currStr = escapeHtml(d[FIELD.currency] || '');
@@ -1351,6 +1462,8 @@ function render(resetPagination = false) {
             <span class="code-badge">${codeStr}</span>
             <span class="badge">${typeStr}</span>
             ${ofiStr}
+            ${resStr}
+            ${actStr}
           </div>
           <div class="obj-title">${titleStr}</div>
           <div class="obj-meta tabular-nums">${zoneStr} · ${currStr} ${priceStr} · ${count} foto${count === 1 ? '' : 's'}</div>
@@ -1607,11 +1720,15 @@ document.querySelectorAll('#opSegmentedControl .segment-btn').forEach(btn => {
 });
 
 // Selects con highlight al tener valor seleccionado
-['zoneFilter', 'ofiFilter', 'equipoFilter', 'consignadorFilter'].forEach(id => {
+['zoneFilter', 'ofiFilter', 'equipoFilter', 'consignadorFilter', 'reservaFilter', 'actualizacionFilter'].forEach(id => {
   const sel = document.getElementById(id);
   if (sel) {
     sel.addEventListener('change', () => {
-      sel.classList.toggle('has-value', Boolean(sel.value));
+      if (id === 'reservaFilter') {
+        sel.classList.toggle('has-value', sel.value !== 'no');
+      } else {
+        sel.classList.toggle('has-value', Boolean(sel.value));
+      }
       if (id === 'ofiFilter') {
         updateEquipoDropdown();
       }
@@ -1640,6 +1757,16 @@ document.getElementById('resetFiltersBtn')?.addEventListener('click', () => {
       sel.classList.remove('has-value');
     }
   });
+  const resSel = document.getElementById('reservaFilter');
+  if (resSel) {
+    resSel.value = 'no';
+    resSel.classList.remove('has-value');
+  }
+  const actSel = document.getElementById('actualizacionFilter');
+  if (actSel) {
+    actSel.value = '';
+    actSel.classList.remove('has-value');
+  }
   updateEquipoDropdown();
 
   // Reset Días (desmarcar todos)
