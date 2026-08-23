@@ -299,16 +299,16 @@ async function main() {
     const cover = imgs[0] || '';
     const gallery = imgs.slice(1).join(', ');
     
-    const cargo = getColValue(r, 'Cargo', 'cargo');
-    const isEx = /^ex/i.test(cargo);
-    const disponibleRaw = getColValue(r, 'DISPONIBLE', 'disponible', 'Disponible');
-    const isAvailable = disponibleRaw.toLowerCase() === 'si' && !isEx;
-
     const reservadoRaw = getColValue(r, 'Reservado', 'reservado', 'Reserva', 'reserva');
     const isReserved = /^(true|si)$/i.test(reservadoRaw.trim());
 
     const actPrecioRaw = getColValue(r, 'Actualizacion precio', 'actualizacion precio', 'Actualización precio', 'actualización precio', 'Actualizacion', 'actualizacion', 'Actualización', 'actualización');
     const isActPrecio = /^(true|si)$/i.test(actPrecioRaw.trim());
+
+    const cargo = getColValue(r, 'Cargo', 'cargo');
+    const isEx = /^ex/i.test(cargo);
+    const disponibleRaw = getColValue(r, 'DISPONIBLE', 'disponible', 'Disponible');
+    const isAvailable = disponibleRaw.toLowerCase() === 'si' && !isEx && !isReserved && !isActPrecio;
 
     const ofiBroker = getColValue(r, 'Ofi BROKER', 'ofi broker', 'Oficina Broker', 'Oficina', 'oficina');
     const planificadorRaw = getColValue(r, 'Planificador', 'planificador', 'Grupo Planificador', 'grupo planificador', 'Grupo', 'grupo');

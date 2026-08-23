@@ -396,8 +396,6 @@ function updateActiveFiltersIndicator() {
   const ofi = document.getElementById('ofiFilter')?.value || '';
   const equipo = document.getElementById('equipoFilter')?.value || '';
   const consignador = document.getElementById('consignadorFilter')?.value || '';
-  const reserva = document.getElementById('reservaFilter')?.value || 'no';
-  const actualizacion = document.getElementById('actualizacionFilter')?.value || '';
   const hasDay = Boolean(document.querySelector('#dayChips .chip.active'));
   const hasGroup = document.querySelectorAll('#groupChecks input:checked').length > 0;
 
@@ -408,8 +406,6 @@ function updateActiveFiltersIndicator() {
     ofi ||
     equipo ||
     consignador ||
-    reserva !== 'no' ||
-    actualizacion !== '' ||
     hasDay ||
     hasGroup
   );
@@ -773,6 +769,21 @@ function extractCodesFromText(text) {
   return Array.from(new Set(codes));
 }
 
+function isPropertyAvailable(d) {
+  if (!d) return false;
+  const isReserved = String(d[FIELD.reservado] || d['reservado'] || d['Reservado'] || '').toLowerCase() === 'si' || String(d[FIELD.reservado] || d['reservado'] || d['Reservado'] || '').toLowerCase() === 'true';
+  const isActPrecio = String(d[FIELD.actualizacionPrecio] || d['actualizacionPrecio'] || d['Actualizacion precio'] || d['actualizacion'] || '').toLowerCase() === 'si' || String(d[FIELD.actualizacionPrecio] || d['actualizacionPrecio'] || d['Actualizacion precio'] || d['actualizacion'] || '').toLowerCase() === 'true';
+  if (isReserved || isActPrecio) return false;
+
+  const cargo = String(d['Cargo'] || d[FIELD.agent] || '').trim();
+  const isExCargo = /^ex/i.test(cargo);
+  const isActivePub = d[FIELD.active] && String(d[FIELD.active]).toLowerCase() === 'si';
+  if (!isActivePub || isExCargo) return false;
+  if (d[FIELD.status] === 'Cerrada') return false;
+
+  return true;
+}
+
 function currentFiltered() {
   const rawSearch = (document.getElementById('searchInput')?.value || '').trim();
   if (rawSearch) {
@@ -784,6 +795,7 @@ function currentFiltered() {
         const prefix = c.replace(/\d+$/, '');
 
         const found = ROWS.find(d => {
+          if (!isPropertyAvailable(d)) return false;
           if (codeFor(d) === c) return true;
           if (String(d[FIELD.code]) === codeNum && (PREFIX[d[FIELD.op]] === prefix || !d[FIELD.op])) return true;
           const desc = String(d['vDBia'] || '');
@@ -808,6 +820,7 @@ function currentFiltered() {
       const isMultiCodeOrNum = searchTokens.some(t => /^\d+$/.test(t) || /^[a-z]+\d+$/i.test(t));
       if (isMultiCodeOrNum) {
         return ROWS.filter(d => {
+          if (!isPropertyAvailable(d)) return false;
           const code = codeFor(d).toLowerCase();
           const codeNum = String(d[FIELD.code] || '').toLowerCase();
           const title = (d[FIELD.title] || '').toLowerCase();
@@ -832,42 +845,22 @@ function currentFiltered() {
   const ofi = document.getElementById('ofiFilter')?.value || '';
   const equipo = document.getElementById('equipoFilter')?.value || '';
   const consignadorFilter = document.getElementById('consignadorFilter')?.value || '';
-  const reservaFilter = document.getElementById('reservaFilter')?.value || 'no';
-  const actualizacionFilter = document.getElementById('actualizacionFilter')?.value || '';
   
   const checkedGroups = [...document.querySelectorAll('#groupChecks input:checked')].map(i => String(i.value));
   const activeDayEl = document.querySelector('#dayChips .chip.active input');
   const selectedDay = activeDayEl ? activeDayEl.value : '';
 
   return ROWS.filter(d => {
+    if (!isPropertyAvailable(d)) return false;
+
     const code = codeFor(d).toLowerCase();
     const title = (d[FIELD.title] || '').toLowerCase();
     const zoneVal = (d[FIELD.zone] || '').toLowerCase();
-    const cargo = String(d['Cargo'] || d[FIELD.agent] || '').trim();
-    const isExCargo = /^ex/i.test(cargo);
-
-    const isReserved = String(d[FIELD.reservado] || d['reservado'] || d['Reservado'] || '').toLowerCase() === 'si' || String(d[FIELD.reservado] || d['reservado'] || d['Reservado'] || '').toLowerCase() === 'true';
-    const isActPrecio = String(d[FIELD.actualizacionPrecio] || d['actualizacionPrecio'] || d['Actualizacion precio'] || d['actualizacion'] || '').toLowerCase() === 'si' || String(d[FIELD.actualizacionPrecio] || d['actualizacionPrecio'] || d['Actualizacion precio'] || d['actualizacion'] || '').toLowerCase() === 'true';
 
     if (search) {
       if (!code.includes(search) && !title.includes(search) && !zoneVal.includes(search)) return false;
       return true;
     }
-
-    // Regla obligatoria: Solo disponibles (DISPONIBLE == "Si" y Cargo != "EX")
-    const isActivePub = d[FIELD.active] && String(d[FIELD.active]).toLowerCase() === 'si';
-    if (!isActivePub || isExCargo) return false;
-
-    // Regla obligatoria: Excluir cerradas
-    if (d[FIELD.status] === 'Cerrada') return false;
-
-    // Filtro de Reserva: Por defecto 'no' (oculta reservadas), 'si' (solo reservadas), 'todas' (incluye todas)
-    if (reservaFilter === 'no' && isReserved) return false;
-    if (reservaFilter === 'si' && !isReserved) return false;
-
-    // Filtro de Actualización de Precio: Por defecto '' (todas), 'si' (solo pendientes de precio), 'no' (sin actualización pendiente)
-    if (actualizacionFilter === 'si' && !isActPrecio) return false;
-    if (actualizacionFilter === 'no' && isActPrecio) return false;
 
     if (op && d[FIELD.op] !== op) return false;
     if (zone && d[FIELD.zone] !== zone) return false;
@@ -1438,14 +1431,9 @@ function render(resetPagination = false) {
     const planGroup = d['planificador'] ?? d[FIELD.group] ?? d['UZGXo'];
     const planDay = d['diaPlanificador'] || d[FIELD.day] || d['a6X7r'] || '';
 
-    const isReserved = String(d[FIELD.reservado] || d['reservado'] || d['Reservado'] || '').toLowerCase() === 'si' || String(d[FIELD.reservado] || d['reservado'] || d['Reservado'] || '').toLowerCase() === 'true';
-    const isActPrecio = String(d[FIELD.actualizacionPrecio] || d['actualizacionPrecio'] || d['Actualizacion precio'] || d['actualizacion'] || '').toLowerCase() === 'si' || String(d[FIELD.actualizacionPrecio] || d['actualizacionPrecio'] || d['Actualizacion precio'] || d['actualizacion'] || '').toLowerCase() === 'true';
-
     const codeStr = escapeHtml(codeFor(d));
     const typeStr = escapeHtml(d[FIELD.type] || '');
     const ofiStr = ofi ? `<span class="badge badge-ofi">${escapeHtml(ofi)}</span>` : '';
-    const resStr = isReserved ? `<span class="badge badge-reserva">🏷️ Reservado</span>` : '';
-    const actStr = isActPrecio ? `<span class="badge badge-actualizacion">⚠️ Actualizar precio</span>` : '';
     const titleStr = escapeHtml((d[FIELD.title] || 'Sin título').trim());
     const zoneStr = escapeHtml(d[FIELD.zone] || '');
     const currStr = escapeHtml(d[FIELD.currency] || '');
@@ -1462,8 +1450,6 @@ function render(resetPagination = false) {
             <span class="code-badge">${codeStr}</span>
             <span class="badge">${typeStr}</span>
             ${ofiStr}
-            ${resStr}
-            ${actStr}
           </div>
           <div class="obj-title">${titleStr}</div>
           <div class="obj-meta tabular-nums">${zoneStr} · ${currStr} ${priceStr} · ${count} foto${count === 1 ? '' : 's'}</div>
@@ -1720,15 +1706,11 @@ document.querySelectorAll('#opSegmentedControl .segment-btn').forEach(btn => {
 });
 
 // Selects con highlight al tener valor seleccionado
-['zoneFilter', 'ofiFilter', 'equipoFilter', 'consignadorFilter', 'reservaFilter', 'actualizacionFilter'].forEach(id => {
+['zoneFilter', 'ofiFilter', 'equipoFilter', 'consignadorFilter'].forEach(id => {
   const sel = document.getElementById(id);
   if (sel) {
     sel.addEventListener('change', () => {
-      if (id === 'reservaFilter') {
-        sel.classList.toggle('has-value', sel.value !== 'no');
-      } else {
-        sel.classList.toggle('has-value', Boolean(sel.value));
-      }
+      sel.classList.toggle('has-value', Boolean(sel.value));
       if (id === 'ofiFilter') {
         updateEquipoDropdown();
       }
@@ -1757,16 +1739,6 @@ document.getElementById('resetFiltersBtn')?.addEventListener('click', () => {
       sel.classList.remove('has-value');
     }
   });
-  const resSel = document.getElementById('reservaFilter');
-  if (resSel) {
-    resSel.value = 'no';
-    resSel.classList.remove('has-value');
-  }
-  const actSel = document.getElementById('actualizacionFilter');
-  if (actSel) {
-    actSel.value = '';
-    actSel.classList.remove('has-value');
-  }
   updateEquipoDropdown();
 
   // Reset Días (desmarcar todos)
