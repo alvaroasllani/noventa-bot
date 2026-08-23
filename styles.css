@@ -294,16 +294,17 @@ header .brand-icon-img {
 header .brand-text-block {
   display: flex;
   flex-direction: column;
+  gap: 1px;
 }
 
 header h1 {
   font-family: var(--font-display);
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   margin: 0;
   font-weight: 800;
   letter-spacing: -0.025em;
   color: var(--text);
-  line-height: 1.15;
+  line-height: 1.1;
 }
 
 .header-actions {
@@ -315,47 +316,39 @@ header h1 {
 .data-timestamp-pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
+  gap: 5px;
+  padding: 4px 8px;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-full);
   font-family: var(--font-mono);
   font-size: 0.6875rem;
   font-weight: 600;
-  color: var(--muted);
-  box-shadow: none;
+  color: var(--text-secondary);
+  box-shadow: var(--shadow-xs);
   cursor: default;
   user-select: none;
   white-space: nowrap;
-  letter-spacing: -0.02em;
-  transition: all var(--duration-fast) ease;
+  letter-spacing: -0.01em;
   line-height: 1.2;
+  transition: all var(--duration-fast) ease;
 }
 
 .data-timestamp-pill svg {
-  width: 10px;
-  height: 10px;
-  color: var(--muted);
+  width: 11px;
+  height: 11px;
+  color: var(--accent);
   flex-shrink: 0;
 }
 
 [data-theme="dark"] .data-timestamp-pill {
-  background: var(--surface-2);
-  border-color: rgba(255, 255, 255, 0.08);
-  color: #94a3b8;
+  background: var(--surface-3);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
 }
 
 [data-theme="dark"] .data-timestamp-pill svg {
-  color: #94a3b8;
-}
-
-@media (max-width: 480px) {
-  .data-timestamp-pill {
-    padding: 2px 6px;
-    font-size: 0.625rem;
-    gap: 3px;
-  }
+  color: #60a5fa;
 }
 
 /* ==========================================================================
@@ -1664,16 +1657,14 @@ input[type="file"] {
   }
 
   .data-timestamp-pill {
-    padding: 3px 7px;
-    font-size: 0.7rem;
-    gap: 4px;
-    max-width: 145px;
-    flex-shrink: 1;
+    padding: 3px 6px;
+    font-size: 0.65rem;
+    gap: 3px;
   }
 
   .data-timestamp-pill svg {
-    width: 11px;
-    height: 11px;
+    width: 10px;
+    height: 10px;
   }
 
   #themeToggleBtn {
@@ -1823,9 +1814,8 @@ input[type="file"] {
   }
 
   .data-timestamp-pill {
-    padding: 2px 6px;
-    font-size: 0.65rem;
-    max-width: 110px;
+    font-size: 0.6rem;
+    gap: 3px;
   }
 
   .icon-btn,

@@ -359,21 +359,24 @@ function updateHeaderDataTimestamp(version, updatedAt, sourceFile) {
   const textEl = document.getElementById('dataTimestampText');
   if (!pill || !textEl) return;
 
+  let dateStr = '';
   let timeStr = '';
   let fullDateStr = '';
   if (updatedAt) {
     const d = new Date(updatedAt);
     if (!isNaN(d.getTime())) {
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
       const hh = String(d.getHours()).padStart(2, '0');
       const mm = String(d.getMinutes()).padStart(2, '0');
+      dateStr = `${day}/${month}`;
       timeStr = `${hh}:${mm}`;
       fullDateStr = `${d.toLocaleDateString()} ${timeStr}`;
     }
   }
 
-  const fileLabel = version || (sourceFile ? sourceFile.replace(/\.(csv|xlsx|xls|json)$/i, '') : 'CSV');
-  const label = timeStr ? `${fileLabel} · ${timeStr}` : fileLabel;
-  textEl.textContent = label;
+  const dateTimeStr = dateStr && timeStr ? `${dateStr} · ${timeStr}` : (timeStr || dateStr || '');
+  textEl.textContent = dateTimeStr;
 
   const tooltipParts = [];
   if (version) tooltipParts.push(`Versión: ${version}`);
