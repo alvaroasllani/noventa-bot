@@ -283,6 +283,7 @@ function updateEquipoDropdown() {
   const teams = new Set();
 
   ROWS.forEach(d => {
+    if (!isPropertyAvailable(d)) return;
     const ofiVal = String(d['ofiBroker'] || d['Ofi BROKER'] || '').trim();
     const eqVal = String(d['equipoBroker'] || d['Eq Broker '] || d['Equipo Broker'] || '').trim();
     if (eqVal) {
@@ -389,7 +390,10 @@ function updateHeaderDataTimestamp(version, updatedAt, sourceFile) {
   if (version) tooltipParts.push(`Versión: ${version}`);
   if (sourceFile) tooltipParts.push(`Archivo: ${sourceFile}`);
   if (fullDateStr) tooltipParts.push(`Fecha del documento: ${fullDateStr}`);
-  if (ROWS && ROWS.length) tooltipParts.push(`Total registros: ${ROWS.length}`);
+  if (ROWS && ROWS.length) {
+    tooltipParts.push(`Disponibles: ${ROWS.filter(isPropertyAvailable).length}`);
+    tooltipParts.push(`Registros con código: ${ROWS.length}`);
+  }
 
   pill.title = tooltipParts.join('\n') || 'Información de datos sincronizados';
   pill.style.display = 'inline-flex';
@@ -485,7 +489,7 @@ function loadData(text, isUserUpload = false, customMeta = null) {
   document.getElementById('hint').style.display = 'block';
 
   const ops = new Set(), types = new Set(), zones = new Set(), days = new Set(), statuses = new Set(), ofis = new Set(), teams = new Set(), consignadores = new Set(), groups = new Set();
-  ROWS.forEach(d => {
+  ROWS.filter(isPropertyAvailable).forEach(d => {
     if (d[FIELD.op]) ops.add(d[FIELD.op]);
     if (d[FIELD.type]) types.add(d[FIELD.type]);
     if (d[FIELD.zone]) zones.add(d[FIELD.zone]);

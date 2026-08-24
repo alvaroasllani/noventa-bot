@@ -12,15 +12,15 @@ assert.ok(adapter.isNinetyExport(rawRows), 'The CSV schema must be detected as a
 
 const normalizedRows = adapter.normalizeNinetyRows(rawRows).map(row => row.data);
 const publishable = normalizedRows.filter(row => row['34Af3'] === 'si');
-assert.strictEqual(publishable.length, 268, 'Only coded listings with images should be publishable');
+assert.strictEqual(publishable.length, 84, 'Only active coded listings with images should be publishable');
 
 const expectedOperations = {
-  ALQUILER: 101,
-  VENTA: 105,
-  PREVENTA: 29,
-  ANTICRETICO: 17,
-  'ENTREGA INMEDIATA': 11,
-  'ALQUILER TEMPORAL': 5
+  ALQUILER: 14,
+  VENTA: 39,
+  PREVENTA: 19,
+  ANTICRETICO: 2,
+  'ENTREGA INMEDIATA': 8,
+  'ALQUILER TEMPORAL': 2
 };
 for (const [operation, count] of Object.entries(expectedOperations)) {
   assert.strictEqual(publishable.filter(row => row.mERYr === operation).length, count, `${operation} count must match the CSV`);
@@ -38,6 +38,12 @@ assert.strictEqual(al3.planificador, 3);
 assert.strictEqual(al3.diaPlanificador, 'Lunes');
 assert.strictEqual(al3.UOFib, 'Bs.');
 assert.strictEqual(al3.GRkSW, '2,800');
+assert.strictEqual(al3.activo, 'false');
+assert.strictEqual(al3['34Af3'], 'no', 'Inactive listings must remain in data but stay hidden');
+
+const activePv1 = normalizedRows.find(row => row.codigo === 'PV1');
+assert.strictEqual(activePv1.activo, 'true');
+assert.strictEqual(activePv1['34Af3'], 'si', 'Active listings with code and images must be visible');
 
 const wednesday = normalizedRows.find(row => row.diaPlanificador === 'Miércoles');
 const saturday = normalizedRows.find(row => row.diaPlanificador === 'Sábado');

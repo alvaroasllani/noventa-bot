@@ -1,4 +1,4 @@
-const CACHE_NAME = 'noventa-bot-v17';
+const CACHE_NAME = 'noventa-bot-v18';
 const ASSETS = [
   './',
   './index.html',

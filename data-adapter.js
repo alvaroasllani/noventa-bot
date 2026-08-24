@@ -67,6 +67,12 @@
     return '';
   }
 
+  function hasColumn(row, ...names) {
+    if (!row) return false;
+    const keys = Object.keys(row).map(plainKey);
+    return names.some(name => keys.includes(plainKey(name)));
+  }
+
   function parseCSV(csvText) {
     let text = String(csvText || '');
     if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
@@ -161,8 +167,11 @@
     const facebook2 = cleanText(getValue(row, 'texto facebook 2'));
     const facebook3 = cleanText(getValue(row, 'texto facebook 3'));
     const whatsapp = cleanText(getValue(row, 'texto whatsapp'));
+    const hasActiveColumn = hasColumn(row, 'activo', 'active', 'disponible');
+    const activeRaw = compactText(getValue(row, 'activo', 'active', 'disponible'));
+    const isActiveBySource = !hasActiveColumn || /^(true|1|si|activo)$/i.test(plainKey(activeRaw));
     const title = type && address ? `${type} en ${address}` : (address || type || code || 'Inmueble');
-    const isPublishable = Boolean(code && operation && images.length);
+    const isPublishable = Boolean(isActiveBySource && code && operation && images.length);
 
     return {
       data: {
@@ -178,6 +187,8 @@
         '0C9DE': images[0] || '',
         '7fYNu': images.slice(1).join(', '),
         imagenes: imagesRaw,
+        activo: hasActiveColumn ? (isActiveBySource ? 'true' : 'false') : '',
+        activoOrigen: activeRaw,
         '34Af3': isPublishable ? 'si' : 'no',
         vDBia: whatsapp,
         abzcW: facebook1 || facebook2 || facebook3,

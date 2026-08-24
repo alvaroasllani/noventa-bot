@@ -15,7 +15,7 @@ es el formato interno consumido por la interfaz.
 Columnas esperadas:
 
 ```text
-codigo, planificador, dia planificado, consignador, direccion, zona, tipo,
+codigo, planificador, dia planificado, consignador, direccion, activo, zona, tipo,
 precio, texto facebook 1, texto facebook 2, texto facebook 3,
 texto whatsapp, imagenes
 ```
@@ -38,9 +38,9 @@ AX → ALQUILER TEMPORAL
 guarda también como el número 1, 2 o 3. Los días `Miercoles` y `Sabado` se
 normalizan a `Miércoles` y `Sábado` para coincidir con los filtros visibles.
 
-Una fila es publicable cuando tiene código reconocido e imágenes. Las filas
-incompletas permanecen en `data.json`, pero `34Af3` queda en `no` y no se
-muestran en resultados.
+Una fila es publicable cuando `activo` es `true` y además tiene código reconocido
+e imágenes. Las filas inactivas o incompletas permanecen en `data.json`, pero
+`34Af3` queda en `no` y no se muestran en búsquedas, filtros ni descargas.
 
 ## Adaptación interna
 
