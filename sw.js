@@ -1,4 +1,4 @@
-const CACHE_NAME = 'descargadornova-v11';
+const CACHE_NAME = 'descargadornova-v15';
 const ASSETS = [
   './',
   './index.html',

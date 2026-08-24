@@ -144,7 +144,10 @@
               stroke-linecap="round" stroke-linejoin="round" class="panel-icon">
               <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
             </svg>
-            <span>Filtros (Zona, Oficina, Equipo, Consignador)</span>
+            <span class="module-summary-copy">
+              <strong>Filtros</strong>
+              <small id="filtersSummaryText">Zona, oficina, equipo y consignador</small>
+            </span>
           </summary>
           <div class="compact-selects-grid">
             <div class="select-field-wrapper">
@@ -171,8 +174,8 @@
         </details>
 
         <!-- 3. Módulo de Selección de Día y Grupo (Planificador - Sin textos "Día:" ni "Grupo:") -->
-        <div class="planificador-module-box">
-          <div class="planificador-module-header">
+        <details id="plannerDetails" class="planificador-module-box">
+          <summary class="planificador-module-header">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
               stroke-linecap="round" stroke-linejoin="round" class="plan-icon">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -180,8 +183,11 @@
               <line x1="8" y1="2" x2="8" y2="6" />
               <line x1="3" y1="10" x2="21" y2="10" />
             </svg>
-            <span>Planificador</span>
-          </div>
+            <span class="module-summary-copy">
+              <strong>Planificador</strong>
+              <small id="plannerSummaryText">Sin programación</small>
+            </span>
+          </summary>
 
           <div class="planificador-pills-container">
             <!-- Días siempre en 1 sola fila -->
@@ -189,13 +195,10 @@
             <!-- Grupos numéricos -->
             <div id="groupChecks" class="chips-group group-pills-track"></div>
           </div>
-        </div>
+        </details>
 
         <!-- 4. Pie del Módulo de Filtros (Barra de Estado y Limpieza) -->
         <div class="panel-footer-bar">
-          <div class="stat-line" id="resultStat" aria-live="polite">
-            Mostrando <b>0</b> de <b>0</b> objetos encontrados
-          </div>
           <button id="resetFiltersBtn" class="btn btn-ghost btn-xs reset-filters-btn">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
               stroke-linecap="round" stroke-linejoin="round">
@@ -208,52 +211,55 @@
       </div>
     </div>
 
-    <!-- Segmented Controls de Operación (Ubicado justo ARRIBA de Resultados) -->
-    <div id="opSegmentedBar" class="op-segmented-bar" style="display:none;">
-      <div id="opSegmentedControl" class="segmented-control-track">
-        <button class="segment-btn active" data-op="">Todas</button>
-        <button class="segment-btn" data-op="ALQUILER">Alquiler</button>
-        <button class="segment-btn" data-op="VENTA">Venta</button>
-        <button class="segment-btn" data-op="PREVENTA">Preventa</button>
-        <button class="segment-btn" data-op="ANTICRETICO">Anticrético</button>
-        <button class="segment-btn" data-op="ENTREGA INMEDIATA">Entrega Inmediata</button>
-        <button class="segment-btn" data-op="PROF / LOCAL">Prof / Local</button>
-      </div>
-    </div>
-
-    <div class="toolbar" id="toolbar" style="display:none">
-      <div class="toolbar-header">
-        <h2>Resultados</h2>
-        <span id="bulkStatusPill" class="progress-pill"></span>
-      </div>
-      <div class="toolbar-controls">
-        <div class="photo-limit-picker">
-          <label for="maxPhotosSelect">Fotos:</label>
-          <select id="maxPhotosSelect">
-            <option value="1">1</option>
-            <option value="4">4</option>
-            <option value="6">6</option>
-            <option value="10" selected>10</option>
-            <option value="999">Todas</option>
-          </select>
+    <div class="results-command-dock">
+      <!-- Segmented Controls de Operación (Ubicado justo ARRIBA de Resultados) -->
+      <div id="opSegmentedBar" class="op-segmented-bar" style="display:none;">
+        <div id="opSegmentedControl" class="segmented-control-track">
+          <button class="segment-btn active" data-op="">Todas</button>
+          <button class="segment-btn" data-op="ALQUILER">Alquiler</button>
+          <button class="segment-btn" data-op="VENTA">Venta</button>
+          <button class="segment-btn" data-op="PREVENTA">Preventa</button>
+          <button class="segment-btn" data-op="ANTICRETICO">Anticrético</button>
+          <button class="segment-btn" data-op="ENTREGA INMEDIATA">Entrega Inmediata</button>
+          <button class="segment-btn" data-op="PROF / LOCAL">Prof / Local</button>
         </div>
-        <button class="btn btn-ghost btn-sm" id="downloadAllBtn">
-          <svg id="downloadAllIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-          <span id="downloadAllBtnText">Descargar todo</span>
-        </button>
-        <button class="btn btn-danger btn-sm" id="cancelDownloadBtn" style="display:none;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="15" y1="9" x2="9" y2="15" />
-            <line x1="9" y1="9" x2="15" y2="15" />
-          </svg>
-          Cancelar
-        </button>
+      </div>
+
+      <div class="toolbar" id="toolbar" style="display:none">
+        <div class="toolbar-header">
+          <h2>Resultados</h2>
+          <div class="stat-line" id="resultStat" aria-live="polite"><b>0</b> resultados</div>
+          <span id="bulkStatusPill" class="progress-pill"></span>
+        </div>
+        <div class="toolbar-controls">
+          <div class="photo-limit-picker">
+            <label for="maxPhotosSelect">Fotos:</label>
+            <select id="maxPhotosSelect">
+              <option value="1">1</option>
+              <option value="4">4</option>
+              <option value="6">6</option>
+              <option value="10" selected>10</option>
+              <option value="999">Todas</option>
+            </select>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="downloadAllBtn">
+            <svg id="downloadAllIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span id="downloadAllBtnText">Descargar todo</span>
+          </button>
+          <button class="btn btn-danger btn-sm" id="cancelDownloadBtn" style="display:none;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="15" y1="9" x2="9" y2="15" />
+              <line x1="9" y1="9" x2="15" y2="15" />
+            </svg>
+            Cancelar
+          </button>
+        </div>
       </div>
     </div>
 

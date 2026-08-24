@@ -419,6 +419,35 @@ function updateActiveFiltersIndicator() {
   resetBtn.classList.toggle('has-active-filters', isAnyFilterActive);
 }
 
+function updateModuleSummaries() {
+  const filtersSummary = document.getElementById('filtersSummaryText');
+  const plannerSummary = document.getElementById('plannerSummaryText');
+
+  if (filtersSummary) {
+    const selectedFilters = ['zoneFilter', 'ofiFilter', 'equipoFilter', 'consignadorFilter']
+      .map(id => document.getElementById(id))
+      .filter(select => select && select.value)
+      .map(select => select.options[select.selectedIndex]?.textContent?.trim())
+      .filter(Boolean);
+
+    filtersSummary.textContent = selectedFilters.length
+      ? selectedFilters.join(' · ')
+      : 'Zona, oficina, equipo y consignador';
+  }
+
+  if (plannerSummary) {
+    const activeDay = document.querySelector('#dayChips .chip.active input')?.value || '';
+    const groups = [...document.querySelectorAll('#groupChecks input:checked')].map(input => input.value);
+    const parts = [];
+
+    if (activeDay) parts.push(activeDay);
+    if (groups.length === 1) parts.push(`Grupo ${groups[0]}`);
+    if (groups.length > 1) parts.push(`Grupos ${groups.join(', ')}`);
+
+    plannerSummary.textContent = parts.length ? parts.join(' · ') : 'Sin programación';
+  }
+}
+
 function loadData(text, isUserUpload = false, customMeta = null) {
   let json;
   try {
@@ -1387,17 +1416,18 @@ function render(resetPagination = false) {
   }
 
   updateActiveFiltersIndicator();
+  updateModuleSummaries();
 
   const list = currentFiltered();
   const visibleList = list.slice(0, VISIBLE_COUNT);
 
   const statEl = document.getElementById('resultStat');
   if (list.length === 0) {
-    statEl.innerHTML = `<b>0</b> objetos encontrados`;
+    statEl.innerHTML = `<b>0</b> resultados`;
   } else if (list.length <= VISIBLE_COUNT) {
-    statEl.innerHTML = `<b>${list.length}</b> objetos encontrados`;
+    statEl.innerHTML = `<b>${list.length}</b> resultados`;
   } else {
-    statEl.innerHTML = `Mostrando <b>${visibleList.length}</b> de <b>${list.length}</b> objetos encontrados`;
+    statEl.innerHTML = `<b>${visibleList.length}</b> de <b>${list.length}</b> resultados`;
   }
 
   const container = document.getElementById('results');
@@ -1766,6 +1796,11 @@ document.getElementById('resetFiltersBtn')?.addEventListener('click', () => {
       if (chk) chk.checked = false;
     });
   }
+
+  const secondaryDetails = document.getElementById('secondaryFiltersDetails');
+  const plannerDetails = document.getElementById('plannerDetails');
+  if (secondaryDetails) secondaryDetails.open = false;
+  if (plannerDetails) plannerDetails.open = false;
 
   render(true);
 });
