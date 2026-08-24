@@ -1505,6 +1505,81 @@ main {
   width: 100%;
 }
 
+.facebook-text-picker {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.facebook-text-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.facebook-text-picker-label {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.facebook-text-options {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+}
+
+.facebook-text-option {
+  appearance: none;
+  width: 28px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) ease, border-color var(--duration-fast) ease, color var(--duration-fast) ease;
+}
+
+.facebook-text-option:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.facebook-text-option.active {
+  color: var(--accent-text);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.facebook-text-option:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.facebook-text-preview {
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .obj-actions .btn-share-wa {
   grid-column: 1;
 }
@@ -1945,6 +2020,15 @@ input[type="file"] {
   .obj-actions .btn-primary {
     min-height: 40px;
     font-size: 0.8125rem;
+  }
+
+  .facebook-text-picker {
+    padding: 7px 8px;
+  }
+
+  .facebook-text-option {
+    width: 30px;
+    height: 28px;
   }
 
   .obj-actions .btn-copy-catalog,

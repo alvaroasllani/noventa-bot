@@ -1,8 +1,9 @@
-const CACHE_NAME = 'descargadornova-v15';
+const CACHE_NAME = 'noventa-bot-v17';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
+  './data-adapter.js',
   './app.js',
   './manifest.json',
   './icon.png',

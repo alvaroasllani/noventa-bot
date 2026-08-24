@@ -1,10 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
-const XLSX = require('xlsx');
+const NinetyDataAdapter = require('../data-adapter.js');
 
 const DRIVE_FILE_ID = process.env.DRIVE_FILE_ID || '';
-const DRIVE_FOLDER_ID = process.env.DRIVE_FOLDER_ID || '1kJ942NqV1rspy9e-b11J4gihD_P6qyjC';
+const DRIVE_FOLDER_ID = process.env.DRIVE_FOLDER_ID || '';
 const DRIVE_API_KEY = process.env.DRIVE_API_KEY || '';
 
 const ROOT_XLSX = path.join(__dirname, '..', 'Propiedades.xlsx');
@@ -130,64 +130,13 @@ function getColValue(row, ...possibleNames) {
   return '';
 }
 
-function parseCSV(csvText) {
-  if (csvText.charCodeAt(0) === 0xFEFF) {
-    csvText = csvText.slice(1);
-  }
-  const rows = [];
-  let currentRow = [];
-  let currentVal = '';
-  let inQuotes = false;
-  
-  for (let i = 0; i < csvText.length; i++) {
-    const char = csvText[i];
-    const nextChar = csvText[i + 1];
-    
-    if (char === '"') {
-      if (inQuotes && nextChar === '"') {
-        currentVal += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (char === ',' && !inQuotes) {
-      currentRow.push(currentVal);
-      currentVal = '';
-    } else if ((char === '\r' || char === '\n') && !inQuotes) {
-      if (char === '\r' && nextChar === '\n') {
-        i++;
-      }
-      currentRow.push(currentVal);
-      currentVal = '';
-      if (currentRow.length > 1 || (currentRow.length === 1 && currentRow[0] !== '')) {
-        rows.push(currentRow);
-      }
-      currentRow = [];
-    } else {
-      currentVal += char;
-    }
-  }
-  if (currentVal !== '' || currentRow.length > 0) {
-    currentRow.push(currentVal);
-    rows.push(currentRow);
-  }
-  if (rows.length === 0) return [];
-  const headers = rows[0].map(h => h.trim());
-  return rows.slice(1).map(row => {
-    const obj = {};
-    headers.forEach((h, idx) => {
-      obj[h] = row[idx] !== undefined ? row[idx] : '';
-    });
-    return obj;
-  });
-}
-
 function parseExcelOrCsv(fileBuffer) {
   // Check if buffer is zip/xlsx (PK magic header: 0x50 0x4B 0x03 0x04) or OLE/xls (0xD0 0xCF 0x11 0xE0)
   const isZipXlsx = fileBuffer.length >= 4 && fileBuffer[0] === 0x50 && fileBuffer[1] === 0x4B && fileBuffer[2] === 0x03 && fileBuffer[3] === 0x04;
   const isOleXls = fileBuffer.length >= 4 && fileBuffer[0] === 0xD0 && fileBuffer[1] === 0xCF && fileBuffer[2] === 0x11 && fileBuffer[3] === 0xE0;
 
   if (isZipXlsx || isOleXls) {
+    const XLSX = require('xlsx');
     const wb = XLSX.read(fileBuffer, { type: 'buffer', codepage: 65001, raw: false });
     const sheet = wb.Sheets[wb.SheetNames[0]];
     return XLSX.utils.sheet_to_json(sheet, { defval: '' });
@@ -195,7 +144,7 @@ function parseExcelOrCsv(fileBuffer) {
 
   // Otherwise, treat as UTF-8 CSV
   const csvText = fileBuffer.toString('utf8');
-  return parseCSV(csvText);
+  return NinetyDataAdapter.parseCSV(csvText);
 }
 
 async function main() {
@@ -205,6 +154,10 @@ async function main() {
   const customArg = process.argv[2];
   const ROOT_CSV24 = path.join(__dirname, '..', 'Propiedades (24).csv');
   const ROOT_CSV = path.join(__dirname, '..', 'Propiedades.csv');
+  const localInmueblesCsv = fs.readdirSync(path.join(__dirname, '..'))
+    .filter(name => /^inmuebles(?:\s*\(\d+\))?\.csv$/i.test(name))
+    .map(name => ({ name, path: path.join(__dirname, '..', name), mtime: fs.statSync(path.join(__dirname, '..', name)).mtimeMs }))
+    .sort((a, b) => b.mtime - a.mtime)[0];
 
   let targetFileId = DRIVE_FILE_ID;
   let driveInfo = null;
@@ -232,6 +185,10 @@ async function main() {
       const lm = await downloadFile(downloadUrl, TEMP_XLSX);
       fileToRead = TEMP_XLSX;
       if (!fileModifiedTime && lm) fileModifiedTime = lm;
+    } else if (localInmueblesCsv) {
+      console.log(`📂 Usando ${localInmueblesCsv.name} local...`);
+      fileToRead = localInmueblesCsv.path;
+      sourceFileName = localInmueblesCsv.name;
     } else if (fs.existsSync(ROOT_CSV24)) {
       console.log('📂 Usando Propiedades (24).csv local...');
       fileToRead = ROOT_CSV24;
@@ -245,6 +202,10 @@ async function main() {
       fileToRead = ROOT_XLSX;
       sourceFileName = 'Propiedades.xlsx';
     }
+  } else if (localInmueblesCsv) {
+    console.log(`📂 Usando ${localInmueblesCsv.name} local...`);
+    fileToRead = localInmueblesCsv.path;
+    sourceFileName = localInmueblesCsv.name;
   } else if (fs.existsSync(ROOT_CSV24)) {
     console.log('📂 Usando Propiedades (24).csv local...');
     fileToRead = ROOT_CSV24;
@@ -317,7 +278,8 @@ async function main() {
 
   const PREFIX_OP = { ALQ: 'ALQUILER', VEN: 'VENTA', PREV: 'PREVENTA', ANT: 'ANTICRETICO', ENTR: 'ENTREGA INMEDIATA', PROF: 'PROF / LOCAL' };
   
-  const jsonRows = rawExcel.map(r => {
+  const isNinetyCsv = NinetyDataAdapter.isNinetyExport(rawExcel);
+  const jsonRows = isNinetyCsv ? NinetyDataAdapter.normalizeNinetyRows(rawExcel) : rawExcel.map(r => {
     const code = getColValue(r, 'Ncodigo', 'ncodigo', 'Codigo', 'codigo', 'odigo', 'ID', 'id');
     const m = code.match(/^([A-Z]+)(\d+)$/);
     const prefix = m ? m[1] : '';
@@ -398,6 +360,7 @@ async function main() {
     sourceFile: finalFileName,
     updatedAt: fileModifiedTime || new Date().toISOString(),
     totalRows: jsonRows.length,
+    publishableRows: jsonRows.filter(row => row.data && row.data['34Af3'] === 'si').length,
     rows: jsonRows
   }, null, 2);
   

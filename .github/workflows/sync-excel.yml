@@ -1,4 +1,4 @@
-name: Sincronizar Excel de Google Drive
+name: Sincronizar catálogo de Google Drive
 
 on:
   repository_dispatch:
@@ -26,7 +26,7 @@ jobs:
       - name: Instalar dependencias
         run: npm install xlsx
 
-      - name: Descargar y procesar Excel
+      - name: Descargar y procesar CSV o Excel
         env:
           DRIVE_FILE_ID: ${{ secrets.DRIVE_FILE_ID }}
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
@@ -36,5 +36,5 @@ jobs:
       - name: Hacer commit y push si hay cambios
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "🤖 Sincronización automática de data.json desde Google Drive"
+          commit_message: "🤖 Sincronización automática del catálogo de 90 Bot"
           file_pattern: "data.json"

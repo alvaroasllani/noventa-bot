@@ -87,7 +87,7 @@
             <polyline points="17 8 12 3 7 8" />
             <line x1="12" y1="3" x2="12" y2="15" />
           </svg>
-          <span>Subir Propiedades.xlsx (opcional)</span>
+          <span>Subir inmuebles.csv (opcional)</span>
         </summary>
         <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
           <div class="drop" id="drop">
@@ -99,12 +99,12 @@
                 <line x1="12" y1="3" x2="12" y2="15" />
               </svg>
             </div>
-            <strong>Seleccionar Propiedades.xlsx</strong>
-            <span>Toca o arrastra aquí el archivo Propiedades.xlsx actualizado</span>
+            <strong>Seleccionar inmuebles.csv</strong>
+            <span>Toca o arrastra aquí el CSV exportado actualizado</span>
           </div>
         </div>
       </details>
-      <input type="file" id="fileInput" accept=".xlsx,.xls,.json,.txt">
+      <input type="file" id="fileInput" accept=".csv,.xlsx,.xls,.json,.txt">
       <div class="stat-line" id="fileStat"
         style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
         <span id="fileStatText">⌛ Cargando datos...</span>
@@ -122,7 +122,7 @@
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input type="text" id="searchInput" placeholder="Buscar o pegar códigos (ej. ALQ119, VEN648)..."
+          <input type="text" id="searchInput" placeholder="Buscar o pegar códigos (ej. AL119, VN648)..."
             autocomplete="off">
           <div class="search-actions-group">
             <button id="pasteSearchBtn" class="paste-search-btn" title="Pegar del portapapeles" aria-label="Pegar directo">
@@ -173,7 +173,7 @@
           </div>
         </details>
 
-        <!-- 3. Módulo de Selección de Día y Grupo (Planificador - Sin textos "Día:" ni "Grupo:") -->
+        <!-- 3. Módulo de selección de día y lista del planificador -->
         <details id="plannerDetails" class="planificador-module-box">
           <summary class="planificador-module-header">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -192,7 +192,7 @@
           <div class="planificador-pills-container">
             <!-- Días siempre en 1 sola fila -->
             <div id="dayChips" class="chips-group day-pills-track"></div>
-            <!-- Grupos numéricos -->
+            <!-- Listas numéricas -->
             <div id="groupChecks" class="chips-group group-pills-track"></div>
           </div>
         </details>
@@ -221,6 +221,7 @@
           <button class="segment-btn" data-op="PREVENTA">Preventa</button>
           <button class="segment-btn" data-op="ANTICRETICO">Anticrético</button>
           <button class="segment-btn" data-op="ENTREGA INMEDIATA">Entrega Inmediata</button>
+          <button class="segment-btn" data-op="ALQUILER TEMPORAL">Temporal</button>
           <button class="segment-btn" data-op="PROF / LOCAL">Prof / Local</button>
         </div>
       </div>
@@ -324,6 +325,7 @@
     </footer>
   </main>
 
+  <script src="data-adapter.js"></script>
   <script src="app.js"></script>
   <script>
     if ('serviceWorker' in navigator) {

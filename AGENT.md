@@ -1,128 +1,113 @@
-# AGENT.md — NOVAHAUS Photo Downloader
+# AGENT.md — 90 Bot
 
-## Project overview
+## Descripción
 
-Client-side tool (single HTML file, no backend) that bulk-downloads real estate
-listing photos from a Glide-based PWA ("NOVAHAUS", a real estate app for
-Cochabamba, Bolivia) so the user doesn't have to open every listing and
-long-press → save each image manually.
+90 Bot es una aplicación web cliente para preparar publicaciones inmobiliarias
+en Marketplace y WhatsApp. Permite buscar inmuebles, filtrar su planificación,
+descargar fotografías y copiar los textos ya preparados.
 
-The source app is not ours — we do not control it, cannot modify it, and have
-no API access. Everything here is built by reverse-engineering how the Glide
-app loads its data client-side.
+El archivo principal de entrada es el CSV exportado con nombres como
+`inmuebles (2).csv`. `scripts/update-excel.js` lo convierte a `data.json`, que
+es el formato interno consumido por la interfaz.
 
-**Primary user:** Alvaro, non-developer, real estate supervisor, uses this
-from an Android phone in Chrome. Prefers concise answers, dislikes
-unsolicited code dumps before he's ready to implement.
+## Esquema del CSV de Noventa
 
-## Current state: functional and fully validated
+Columnas esperadas:
 
-The tool works end-to-end for both:
-1. **Pasted List Workflow (Primary):** User pastes text containing titles/codes copied from the app or WhatsApp. Regex extracts valid codes, matches them against `data.json`, and displays photo cards in exact order.
-2. **Manual Filter Workflow (Reactivated & Enhanced):** Visible collapsible panel supporting multi-select for Día Planificador, multi-select for Planificador group (1-5), Oficina Broker dropdown (`ofiBroker`), Status, Operation, Property Type, Zone, Active/Published status, and Agent.
-3. **Data Display:** Displays `Oficina Broker`, `Planificador / Día` and `Equipo Broker` (`equipoBroker`) as informative badges on property cards (note: `Equipo Broker` is displayed as data only, no filtering by team).
-4. **Automated Synchronization:** GitHub Actions runs 15 times/day (`.github/workflows/sync-excel.yml`), downloading the latest spreadsheet from Google Drive (regardless of filename on Drive, e.g. `11082026.xlsx`) and updating `data.json`.
-
-## How the source app works (reverse-engineered, not documented anywhere)
-
-- The NOVAHAUS app is a Glide (glideapps.com) PWA. Backend is Firestore
-  (`projects/glide-prod/...`), synced live over a WebChannel
-  (`channel?VER=8&database=...`).
-- Separately, Glide pre-bakes the **entire table** as a static JSON blob and
-  hosts it on GCS with a **signed URL** (filename pattern: `<hash>.jzon?GoogleAccessId=...`).
-- In addition, Excel files uploaded or exported from Google Drive containing columns like `Ofi BROKER`, `Planificador`, `Dia planificador`, `Cargo`, and `Eq Broker ` are parsed and normalized by `scripts/update-excel.js`.
-
-## Data schema (`data.json` / the `.jzon` / Excel file)
-
-Shape: `{"rows": [{"id": "...", "data": {...}}, ...]}`, ~2017 rows in sample.
-
-Key mapping & column definitions:
-
-```
-mERYr  → operation type: ALQUILER | VENTA | PREVENTA | ANTICRETICO |
-                          ENTREGA INMEDIATA | PROF / LOCAL          [CONFIRMED]
-oHoAu  → property type: Departamento | Casa | Local comercial | Oficina |
-                         Lote | Monoambiente | Habitación | Townhouse |
-                         Penthouse | Galpón | Edificio | Depósito | Varios
-                                                                     [CONFIRMED]
-WIoeb  → zone (free text)                                           [CONFIRMED]
-5kIsO  → listing title                                               [CONFIRMED]
-GRkSW  → price (number)                                              [CONFIRMED]
-UOFib  → currency ("Bs." / "$us.")                                   [CONFIRMED]
-lak0f  → numeric code, combine with prefix derived from mERYr        [CONFIRMED]
-         to form visible code (e.g. lak0f=809, mERYr=ALQUILER → "ALQ809")
-0C9DE  → cover photo, Drive "view" URL (Photo #1)                    [CONFIRMED]
-7fYNu  → carousel photos (comma-separated Drive URLs)               [CONFIRMED]
-34Af3  → published/available in app ("si" | "no").
-         Condition: DISPONIBLE == "si" AND Cargo != "EX".
-vDBia  → long description / catalog text (#ALQ809)                   [CONFIRMED]
-abzcW  → Facebook post text for the property                         [CONFIRMED]
-ofiBroker → Oficina Broker ("Central", "Sharks", "One", "Tempo")    [CONFIRMED]
-planificador / UZGXo → Planificador group integer 1-5               [CONFIRMED]
-diaPlanificador / a6X7r → Planificador day ("Lunes" ... "Domingo")  [CONFIRMED]
-equipoBroker → Equipo Broker ("Central", "Omega", "Eagles", etc.)   [CONFIRMED]
-Cargo  → Agent cargo ("Asesor", "Ex", etc.)                         [CONFIRMED]
-PJe5x  → Agent / Supervisor name                                    [CONFIRMED]
+```text
+codigo, planificador, dia planificado, consignador, direccion, zona, tipo,
+precio, texto facebook 1, texto facebook 2, texto facebook 3,
+texto whatsapp, imagenes
 ```
 
-Code prefix table (derived from `mERYr` + `lak0f`):
+Los textos de Facebook y WhatsApp pueden contener comas, saltos de línea,
+caracteres Unicode y emojis. Deben conservarse sin reformatearlos.
 
+Prefijos de código:
+
+```text
+AL → ALQUILER
+VN → VENTA
+PV → PREVENTA
+AN → ANTICRETICO
+PE → ENTREGA INMEDIATA
+AX → ALQUILER TEMPORAL
 ```
-ALQUILER           → ALQ
-VENTA              → VEN
-PREVENTA           → PREV
-ANTICRETICO        → ANT
-ENTREGA INMEDIATA  → ENTR
-PROF / LOCAL       → PROF
+
+`planificador` llega como `LISTA 1`, `LISTA 2` o `LISTA 3`. Internamente se
+guarda también como el número 1, 2 o 3. Los días `Miercoles` y `Sabado` se
+normalizan a `Miércoles` y `Sábado` para coincidir con los filtros visibles.
+
+Una fila es publicable cuando tiene código reconocido e imágenes. Las filas
+incompletas permanecen en `data.json`, pero `34Af3` queda en `no` y no se
+muestran en resultados.
+
+## Adaptación interna
+
+`data-adapter.js` es la fuente única de verdad para leer y normalizar este CSV.
+Se usa desde Node.js y directamente en el navegador al cargar un archivo
+manual. Campos internos relevantes:
+
+```text
+codigo → código original completo, por ejemplo AL3
+mERYr → operación normalizada
+oHoAu → tipo
+WIoeb → zona
+5kIsO → título derivado de tipo y dirección
+GRkSW / UOFib → importe y moneda separados
+0C9DE / 7fYNu → portada y galería
+vDBia → texto WhatsApp
+abzcW → texto Facebook 1, con respaldo en 2 y 3
+textoFacebook1/2/3 → las tres variantes originales
+planificador / UZGXo → número de lista
+diaPlanificador / a6X7r → día normalizado
+consignador → consignador del CSV
 ```
 
-## Resolved problems
+El CSV no contiene Oficina ni Equipo. La interfaz oculta automáticamente esos
+filtros cuando no existen valores, pero mantiene compatibilidad con archivos
+antiguos que sí los incluyan.
 
-### 1. "Pasted List" & "Planificador" matching (RESOLVED)
-- Text list parser regex: `/\b(ALQ|VEN|PREV|ANT|ENTR|PROF)\s*#?\s*(\d+)\b/gi` extracts official codes while ignoring Spanish words like "DE 4" or "DE 2".
-- Row matching checks `codeFor(d)`, row strings, and raw `lak0f` numbers.
-- Multi-select chips for Planificador groups (1-5) and Día Planificador (Lunes-Domingo) allow granular or multi-day filtering.
+Cuando un inmueble contiene más de un texto de Facebook, la ficha muestra un
+selector compacto 1–3. La variante elegida se conserva mientras la app está
+abierta y es la que usan tanto `Copiar FB` como la acción de compartir en
+Facebook.
 
-### 2. Photo extraction (RESOLVED)
-- Glide stores photos in multiple columns (`0C9DE`, `7fYNu`, `P0E5J`, `RiqQn`, etc.).
-- Function `getPhotoList(d)` scans all string properties of the row for Google Drive file URLs, prepending Portada (`0C9DE`) as Photo #1 and deduplicating.
+## Actualización
 
-### 3. Reliable downloads & iOS Photo Saving (RESOLVED)
-- **Web Share API Support:** In iOS (Safari and Chrome on iPhone/iPad) and mobile browsers supporting `navigator.share({ files })`, clicking the primary photo button prepares all property images as `File` blobs and launches the native mobile share sheet. This allows iPhone users to tap **"Guardar 10 imágenes"** to save all property photos directly into their iPhone Photo Gallery/Camera Roll in 1 tap, or share them directly to WhatsApp.
-- Visible link pills (`Foto 1 (Portada)`, `Foto 2`, etc.) allow 100% reliable 1-tap direct access to individual photo links without pop-up blocker restrictions.
+Uso local:
 
-### 4. Automatic Catalog Text Copying (RESOLVED)
-- When clicking "Guardar en Fotos / Compartir" or "Descargar fotos (.jpg)", the full property description text from `vDBia` (the catalog text) is automatically copied to the clipboard via `copyToClipboard()`.
-- An explicit "Copiar catálogo" button is also provided on each property card to copy the text manually at any time with visual feedback on the progress pill (`📋 Catálogo copiado`).
+```text
+node scripts/update-excel.js "inmuebles (2).csv"
+```
 
-## Sheet generator (`generar_sheet.js`)
+Sin argumento, el script toma el archivo `inmuebles*.csv` local más reciente.
+En GitHub Actions puede descargar el archivo más reciente desde Drive usando
+`DRIVE_FOLDER_ID`, `DRIVE_FILE_ID` y opcionalmente `DRIVE_API_KEY` como
+secretos. No debe configurarse una carpeta heredada por defecto.
 
-Node.js script that reads `data.json` and produces `novahaus_sheet.xlsx` with
-one tab per operation type, for Facebook publishing workflow.
+## Validación
 
-- **Filter:** Only `34Af3 === "si"` (published in Glide). Does NOT filter by
-  `TieEY` or ex-agent — those filters are for the photo downloader only.
-- **Tabs (fixed order):** Ventas, Alquiler, Anticrético, Entrega Inmediata,
-  Preventa, Prof - Local.
-- **Columns:** Código, Texto Facebook, URLs Imagenes, Publicado.
-- **Run:** `node generar_sheet.js` — overwrites `novahaus_sheet.xlsx` and
-  `resumen.txt`.
-- **Depends on:** `xlsx` npm package.
+```text
+node tests/inmuebles-adapter.test.js
+node tests/filters.test.js
+node --check app.js
+node --check data-adapter.js
+node --check scripts/update-excel.js
+```
 
-## File locations
+## Archivos principales
 
-- `index.html` / `app.js` / `styles.css` — photo downloader tool (web app)
-- `data.json` — local dataset (copy of Glide's `.jzon` / Drive Excel)
-- `scripts/update-excel.js` — node script for Google Drive sync & Excel parsing
-- `.github/workflows/sync-excel.yml` — 15x/day automated sync workflow
-- `tests/filters.test.js` — TDD test suite for filter rules and column extraction
-- `generar_sheet.js` — generates `novahaus_sheet.xlsx` for Facebook publishing
-- `novahaus_sheet.xlsx` — generated output, 6 tabs, all published properties
-- `resumen.txt` — summary report from last sheet generation
-- `AGENT.md` — project context & documentation
+- `index.html`, `app.js`, `styles.css`: aplicación web.
+- `data-adapter.js`: parser y normalización compartidos.
+- `inmuebles (2).csv`: exportación de origen actual.
+- `data.json`: catálogo generado para producción.
+- `scripts/update-excel.js`: actualización local/Drive.
+- `.github/workflows/sync-excel.yml`: sincronización automática.
 
-## Conventions / working style
+## Convenciones
 
-- User is non-technical, wants working tools, not code explanations by default.
-- Keep responses short and direct.
-- Maintain single-file self-contained `.html` tool for Chrome on Android.
+- El usuario principal trabaja desde Android y prioriza rapidez y simpleza.
+- No alterar los textos de publicación ni eliminar saltos de línea o emojis.
+- Mantener la estructura visual compacta y evitar agregar ruido a las fichas.
+- Preservar compatibilidad con Excel/JSON salvo que se solicite retirarla.

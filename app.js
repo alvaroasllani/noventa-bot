@@ -67,8 +67,12 @@ const PREFIX = {
   'PREVENTA': 'PREV',
   'ANTICRETICO': 'ANT',
   'ENTREGA INMEDIATA': 'ENTR',
+  'ALQUILER TEMPORAL': 'AX',
   'PROF / LOCAL': 'PROF'
 };
+
+// Mantiene la variante de Facebook elegida para cada inmueble mientras se usa la app.
+const FACEBOOK_TEXT_SELECTION = new WeakMap();
 
 // --- BULK DOWNLOAD CONTROL STATE ---
 let IS_DOWNLOADING_ALL = false;
@@ -151,7 +155,7 @@ function populateSelect(sel, values, placeholder) {
 // --- INDEXEDDB STORAGE FOR CUSTOM DATA.JSON ---
 function openDB() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open('NovaDownloadDB', 1);
+    const req = indexedDB.open('NinetyBotDB', 1);
     req.onupgradeneeded = e => {
       const db = e.target.result;
       if (!db.objectStoreNames.contains('settings')) {
@@ -430,9 +434,20 @@ function updateModuleSummaries() {
       .map(select => select.options[select.selectedIndex]?.textContent?.trim())
       .filter(Boolean);
 
+    const availableLabels = [
+      ['zoneFilter', 'zona'],
+      ['ofiFilter', 'oficina'],
+      ['equipoFilter', 'equipo'],
+      ['consignadorFilter', 'consignador']
+    ].filter(([id]) => {
+      const select = document.getElementById(id);
+      const wrapper = select?.closest('.select-field-wrapper');
+      return select && (!wrapper || wrapper.style.display !== 'none');
+    }).map(([, label]) => label);
+
     filtersSummary.textContent = selectedFilters.length
       ? selectedFilters.join(' · ')
-      : 'Zona, oficina, equipo y consignador';
+      : availableLabels.join(', ') || 'Sin filtros adicionales';
   }
 
   if (plannerSummary) {
@@ -441,8 +456,8 @@ function updateModuleSummaries() {
     const parts = [];
 
     if (activeDay) parts.push(activeDay);
-    if (groups.length === 1) parts.push(`Grupo ${groups[0]}`);
-    if (groups.length > 1) parts.push(`Grupos ${groups.join(', ')}`);
+    if (groups.length === 1) parts.push(`Lista ${groups[0]}`);
+    if (groups.length > 1) parts.push(`Listas ${groups.join(', ')}`);
 
     plannerSummary.textContent = parts.length ? parts.join(' · ') : 'Sin programación';
   }
@@ -469,7 +484,7 @@ function loadData(text, isUserUpload = false, customMeta = null) {
   document.getElementById('toolbar').style.display = 'flex';
   document.getElementById('hint').style.display = 'block';
 
-  const ops = new Set(), types = new Set(), zones = new Set(), days = new Set(), statuses = new Set(), ofis = new Set();
+  const ops = new Set(), types = new Set(), zones = new Set(), days = new Set(), statuses = new Set(), ofis = new Set(), teams = new Set(), consignadores = new Set(), groups = new Set();
   ROWS.forEach(d => {
     if (d[FIELD.op]) ops.add(d[FIELD.op]);
     if (d[FIELD.type]) types.add(d[FIELD.type]);
@@ -479,6 +494,12 @@ function loadData(text, isUserUpload = false, customMeta = null) {
     if (d[FIELD.status]) statuses.add(d[FIELD.status]);
     const ofiVal = d['ofiBroker'] || d['Ofi BROKER'];
     if (ofiVal) ofis.add(ofiVal);
+    const teamVal = d['equipoBroker'] || d['Eq Broker '] || d['Equipo Broker'];
+    if (teamVal) teams.add(teamVal);
+    const consignadorVal = d[FIELD.consignador] || d['Consignador'];
+    if (consignadorVal) consignadores.add(consignadorVal);
+    const groupVal = d['planificador'] ?? d[FIELD.group] ?? d['UZGXo'];
+    if (groupVal !== '' && groupVal !== null && groupVal !== undefined) groups.add(String(groupVal));
   });
 
   populateSelect(document.getElementById('opFilter'), ops, 'Operación (todas)');
@@ -486,6 +507,21 @@ function loadData(text, isUserUpload = false, customMeta = null) {
   populateSelect(document.getElementById('ofiFilter'), ofis, 'Oficina Broker (todas)');
   updateEquipoDropdown();
   updateConsignadorDropdown();
+
+  [['ofiFilter', ofis.size > 0], ['equipoFilter', teams.size > 0], ['consignadorFilter', consignadores.size > 0]].forEach(([id, visible]) => {
+    const select = document.getElementById(id);
+    const wrapper = select?.closest('.select-field-wrapper');
+    if (wrapper) wrapper.style.display = visible ? '' : 'none';
+  });
+
+  document.querySelectorAll('#opSegmentedControl .segment-btn').forEach(button => {
+    const operation = button.dataset.op || '';
+    button.style.display = !operation || ops.has(operation) ? '' : 'none';
+    if (operation && !ops.has(operation)) button.classList.remove('active');
+  });
+  if (!document.querySelector('#opSegmentedControl .segment-btn.active')) {
+    document.querySelector('#opSegmentedControl .segment-btn[data-op=""]')?.classList.add('active');
+  }
 
   // Configurar Chips de Día Planificador (selección única con detección automática del día de hoy)
   const dayWrap = document.getElementById('dayChips');
@@ -523,11 +559,12 @@ function loadData(text, isUserUpload = false, customMeta = null) {
     });
   }
 
-  // Configurar Chips de Grupo Planificador (1 al 5 - multiselección, solo números)
+  // Configurar listas del planificador detectadas en el archivo.
   const groupWrap = document.getElementById('groupChecks');
   if (groupWrap) {
     groupWrap.innerHTML = '';
-    [1, 2, 3, 4, 5].forEach(n => {
+    const groupValues = [...groups].sort((a, b) => Number(a) - Number(b));
+    groupValues.forEach(n => {
       const label = document.createElement('label');
       label.className = 'chip chip-num';
       label.innerHTML = `<input type="checkbox" value="${n}"> ${n}`;
@@ -554,7 +591,7 @@ async function initData() {
     if (ok) {
       const d = new Date(custom.date);
       const fDate = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      statText.innerHTML = `✅ <b>Propiedades.xlsx personalizado cargado</b> (${ROWS.length} objetos · ${fDate})`;
+      statText.innerHTML = `✅ <b>Catálogo personalizado cargado</b> (${ROWS.length} inmuebles · ${fDate})`;
       resetBtn.style.display = 'inline-flex';
       return;
     }
@@ -637,19 +674,54 @@ async function fetchDefaultData() {
 
     const ok = loadData(text, false);
     if (ok) {
-      statText.innerHTML = `✅ <b>Datos de Propiedades cargados</b> (${ROWS.length} objetos)`;
+      statText.innerHTML = `✅ <b>Catálogo de inmuebles cargado</b> (${ROWS.length} inmuebles)`;
       startAutoUpdateChecker();
     } else {
-      statText.innerHTML = `⚠️ Error al procesar datos base. Puedes subir Propiedades.xlsx abajo.`;
+      statText.innerHTML = `⚠️ Error al procesar los datos. Puedes subir inmuebles.csv.`;
     }
   } catch (e) {
-    statText.innerHTML = `⚠️ No se pudieron cargar los datos base. Sube Propiedades.xlsx abajo.`;
+    statText.innerHTML = `⚠️ No se pudieron cargar los datos. Sube inmuebles.csv.`;
   }
 }
 
 async function handleUserFileUpload(file) {
   if (!file) return;
   const fileName = file.name.toLowerCase();
+
+  if (fileName.endsWith('.csv')) {
+    const reader = new FileReader();
+    reader.onload = async ev => {
+      try {
+        const rawRows = window.NinetyDataAdapter.parseCSV(ev.target.result);
+        if (!window.NinetyDataAdapter.isNinetyExport(rawRows)) {
+          throw new Error('El CSV no contiene las columnas esperadas de inmuebles.');
+        }
+        const jsonRows = window.NinetyDataAdapter.normalizeNinetyRows(rawRows);
+        const now = new Date();
+        const versionMatch = file.name.match(/\((\d+)\)/) || file.name.match(/v?(\d+)/);
+        const versionLabel = versionMatch ? `CSV #${versionMatch[1]}` : 'CSV';
+        const jsonStr = JSON.stringify({
+          version: versionLabel,
+          sourceFile: file.name,
+          updatedAt: now.toISOString(),
+          totalRows: jsonRows.length,
+          publishableRows: jsonRows.filter(row => row.data && row.data['34Af3'] === 'si').length,
+          rows: jsonRows
+        });
+        const ok = loadData(jsonStr, true, { version: versionLabel, fileName: file.name, date: now.toISOString() });
+        if (ok) {
+          await setStoredData(jsonStr, file.name);
+          const fDate = now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          document.getElementById('fileStatText').innerHTML = `✅ <b>${file.name} cargado</b> (${ROWS.length} inmuebles · ${fDate})`;
+          document.getElementById('resetDataBtn').style.display = 'inline-flex';
+        }
+      } catch (e) {
+        alert('Error al procesar el CSV: ' + e.message);
+      }
+    };
+    reader.readAsText(file);
+    return;
+  }
 
   if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
     if (typeof XLSX === 'undefined') {
@@ -665,7 +737,9 @@ async function handleUserFileUpload(file) {
         const rawExcel = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
         const PREFIX_OP = { ALQ: 'ALQUILER', VEN: 'VENTA', PREV: 'PREVENTA', ANT: 'ANTICRETICO', ENTR: 'ENTREGA INMEDIATA', PROF: 'PROF / LOCAL' };
-        const jsonRows = rawExcel.map(r => {
+        const jsonRows = window.NinetyDataAdapter.isNinetyExport(rawExcel)
+          ? window.NinetyDataAdapter.normalizeNinetyRows(rawExcel)
+          : rawExcel.map(r => {
           const getVal = (...names) => {
             const keys = Object.keys(r);
             for (const n of names) {
@@ -799,7 +873,7 @@ function getPhotoList(d) {
 
 function extractCodesFromText(text) {
   if (!text) return [];
-  const matches = [...text.matchAll(/\b(ALQ|VEN|PREV|ANT|ENTR|PROF)\s*#?\s*(\d+)\b/gi)];
+  const matches = [...text.matchAll(/\b(ALQ|VEN|PREV|ANT|ENTR|PROF|AL|VN|PV|AN|PE|AX)\s*#?\s*(\d+)\b/gi)];
   const codes = matches.map(m => `${m[1].toUpperCase()}${m[2]}`);
   return Array.from(new Set(codes));
 }
@@ -926,6 +1000,8 @@ function currentFiltered() {
 }
 
 function codeFor(d) {
+  const sourceCode = String(d.codigo || d.Codigo || '').trim().toUpperCase();
+  if (sourceCode) return sourceCode;
   const prefix = PREFIX[d[FIELD.op]] || 'OBJ';
   return `${prefix}${d[FIELD.code] ?? ''}`;
 }
@@ -968,12 +1044,40 @@ function getCatalogText(d) {
 
 function getFacebookText(d) {
   if (!d) return '';
-  const fbVal = d[FIELD.facebook] || d['abzcW'] || d['Txt Facebook'] || d['txt facebook'];
-  if (fbVal && String(fbVal).trim()) return String(fbVal).trim();
+  const selected = getSelectedFacebookVariant(d);
+  if (selected) return selected.text;
   const catVal = d[FIELD.catalog] || d['vDBia'] || d['Txt Catalogo'] || d['txt catalogo'];
   if (catVal && String(catVal).trim()) return String(catVal).trim();
   const title = d[FIELD.title] || d['5kIsO'] || 'Inmueble';
   return `${codeFor(d)} - ${String(title).trim()}`;
+}
+
+function getFacebookVariants(d) {
+  if (!d) return [];
+
+  const explicit = [1, 2, 3].map(number => ({
+    number,
+    text: String(d[`textoFacebook${number}`] || d[`texto facebook ${number}`] || '').trim()
+  })).filter(variant => variant.text);
+
+  if (explicit.length) return explicit;
+
+  const legacyText = d[FIELD.facebook] || d['abzcW'] || d['Txt Facebook'] || d['txt facebook'];
+  return legacyText && String(legacyText).trim()
+    ? [{ number: 1, text: String(legacyText).trim() }]
+    : [];
+}
+
+function getSelectedFacebookVariant(d) {
+  const variants = getFacebookVariants(d);
+  if (!variants.length) return null;
+  const selectedNumber = FACEBOOK_TEXT_SELECTION.get(d);
+  return variants.find(variant => variant.number === selectedNumber) || variants[0];
+}
+
+function facebookTextPreview(text, maxLength = 130) {
+  const compact = String(text || '').replace(/\s+/g, ' ').trim();
+  return compact.length > maxLength ? `${compact.slice(0, maxLength - 1).trim()}…` : compact;
 }
 
 function copyToClipboardSync(text) {
@@ -1267,7 +1371,8 @@ async function shareSocial(d, btnTarget, platform = 'whatsapp') {
 
   const isFB = platform === 'facebook';
   const shareText = isFB ? getFacebookText(d) : getCatalogText(d);
-  const textName = isFB ? 'Facebook' : 'Catálogo';
+  const facebookVariant = isFB ? getSelectedFacebookVariant(d) : null;
+  const textName = isFB ? `Facebook${facebookVariant ? ` ${facebookVariant.number}` : ''}` : 'Catálogo';
 
   // Copia inmediata síncrona en el gesto del usuario
   const textCopied = copyToClipboardSync(shareText);
@@ -1475,6 +1580,25 @@ function render(resetPagination = false) {
     const currStr = escapeHtml(d[FIELD.currency] || '');
     const priceStr = escapeHtml(d[FIELD.price] ?? '');
     const thumbUrl = thumbId ? driveThumbUrl(thumbId) : '';
+    const facebookVariants = getFacebookVariants(d);
+    const selectedFacebookVariant = getSelectedFacebookVariant(d);
+    const facebookPickerHtml = facebookVariants.length > 1 ? `
+      <div class="facebook-text-picker" role="group" aria-label="Elegir texto para Facebook">
+        <div class="facebook-text-picker-head">
+          <span class="facebook-text-picker-label">Texto Facebook</span>
+          <div class="facebook-text-options">
+            ${facebookVariants.map(variant => `
+              <button type="button"
+                class="facebook-text-option${variant.number === selectedFacebookVariant.number ? ' active' : ''}"
+                data-facebook-variant="${variant.number}"
+                aria-pressed="${variant.number === selectedFacebookVariant.number ? 'true' : 'false'}"
+                aria-label="Usar texto Facebook ${variant.number}">${variant.number}</button>
+            `).join('')}
+          </div>
+        </div>
+        <div class="facebook-text-preview" aria-live="polite">${escapeHtml(facebookTextPreview(selectedFacebookVariant.text))}</div>
+      </div>
+    ` : '';
 
     const el = document.createElement('div');
     el.className = 'obj';
@@ -1511,6 +1635,7 @@ function render(resetPagination = false) {
             <span>Descargar fotos (.jpg)</span>
           `}
         </button>
+        ${facebookPickerHtml}
         <button class="btn btn-share-wa">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.99c-.002 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
@@ -1543,6 +1668,24 @@ function render(resetPagination = false) {
     el.querySelector('.btn-share-wa')?.addEventListener('click', (e) => shareSocial(d, e.target, 'whatsapp'));
     el.querySelector('.btn-share-fb')?.addEventListener('click', (e) => shareSocial(d, e.target, 'facebook'));
     el.querySelector('.btn-dl-jpg')?.addEventListener('click', (e) => downloadObject(d, e.target));
+
+    el.querySelectorAll('.facebook-text-option').forEach(option => {
+      option.addEventListener('click', () => {
+        const selectedNumber = Number(option.dataset.facebookVariant);
+        const selectedVariant = facebookVariants.find(variant => variant.number === selectedNumber);
+        if (!selectedVariant) return;
+
+        FACEBOOK_TEXT_SELECTION.set(d, selectedNumber);
+        el.querySelectorAll('.facebook-text-option').forEach(button => {
+          const isActive = Number(button.dataset.facebookVariant) === selectedNumber;
+          button.classList.toggle('active', isActive);
+          button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+
+        const preview = el.querySelector('.facebook-text-preview');
+        if (preview) preview.textContent = facebookTextPreview(selectedVariant.text);
+      });
+    });
     
     el.querySelector('.btn-copy-catalog')?.addEventListener('click', () => {
       const catalogText = getCatalogText(d);
@@ -1557,11 +1700,14 @@ function render(resetPagination = false) {
 
     el.querySelector('.btn-copy-facebook')?.addEventListener('click', () => {
       const fbText = getFacebookText(d);
+      const selectedVariant = getSelectedFacebookVariant(d);
       const pill = el.querySelector('.progress-pill');
       const ok = copyToClipboardSync(fbText);
       if (pill) {
         pill.classList.add('show');
-        pill.textContent = ok ? '📘 Texto Facebook copiado al portapapeles' : '⚠️ Error al copiar al portapapeles';
+        pill.textContent = ok
+          ? `📘 Texto Facebook${selectedVariant ? ` ${selectedVariant.number}` : ''} copiado`
+          : '⚠️ Error al copiar al portapapeles';
         setTimeout(() => { pill.classList.remove('show'); }, 3500);
       }
     });
