@@ -1,13 +1,13 @@
 {
-  "name": "NovaBot",
-  "short_name": "NovaBot",
-  "description": "Herramienta para descargar fotos y copiar catálogos de inmuebles DescargadorNova",
+  "name": "90 Bot",
+  "short_name": "90 Bot",
+  "description": "Herramienta de Noventa para buscar, preparar y publicar inmuebles",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#f4f7f5",
+  "theme_color": "#004139",
   "icons": [
     {
       "src": "icon.png",
