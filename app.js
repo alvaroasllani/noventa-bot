@@ -367,10 +367,13 @@ function updateHeaderDataTimestamp(version, updatedAt, sourceFile) {
     if (!isNaN(d.getTime())) {
       const day = String(d.getDate()).padStart(2, '0');
       const month = String(d.getMonth() + 1).padStart(2, '0');
-      const hh = String(d.getHours()).padStart(2, '0');
-      const mm = String(d.getMinutes()).padStart(2, '0');
       dateStr = `${day}/${month}`;
-      timeStr = `${hh}:${mm}`;
+
+      let hours = d.getHours();
+      const mins = String(d.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'pm' : 'am';
+      hours = hours % 12 || 12;
+      timeStr = `${hours}:${mins} ${ampm}`;
       fullDateStr = `${d.toLocaleDateString()} ${timeStr}`;
     }
   }
@@ -381,7 +384,7 @@ function updateHeaderDataTimestamp(version, updatedAt, sourceFile) {
   const tooltipParts = [];
   if (version) tooltipParts.push(`Versión: ${version}`);
   if (sourceFile) tooltipParts.push(`Archivo: ${sourceFile}`);
-  if (fullDateStr) tooltipParts.push(`Última sincronización: ${fullDateStr}`);
+  if (fullDateStr) tooltipParts.push(`Fecha del documento: ${fullDateStr}`);
   if (ROWS && ROWS.length) tooltipParts.push(`Total registros: ${ROWS.length}`);
 
   pill.title = tooltipParts.join('\n') || 'Información de datos sincronizados';

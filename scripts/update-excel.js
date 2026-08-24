@@ -27,35 +27,42 @@ function fetchText(url) {
 
 function downloadFile(url, dest) {
   return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(dest);
-    https.get(url, response => {
-      if (response.statusCode === 302 || response.statusCode === 303 || response.statusCode === 301) {
-        return downloadFile(response.headers.location, dest).then(resolve).catch(reject);
+    let lastModified = null;
+    const req = https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, res => {
+      if (res.statusCode === 302 || res.statusCode === 303 || res.statusCode === 301) {
+        return downloadFile(res.headers.location, dest).then(resolve).catch(reject);
       }
-      if (response.statusCode !== 200) {
-        return reject(new Error(`HTTP status ${response.statusCode}`));
+      if (res.statusCode !== 200) {
+        return reject(new Error(`HTTP status ${res.statusCode}`));
       }
-      response.pipe(file);
+      if (res.headers['last-modified']) {
+        lastModified = new Date(res.headers['last-modified']).toISOString();
+      }
+      const file = fs.createWriteStream(dest);
+      res.pipe(file);
       file.on('finish', () => {
-        file.close(resolve);
+        file.close(() => resolve(lastModified));
       });
-    }).on('error', err => {
-      fs.unlink(dest, () => reject(err));
+      file.on('error', err => {
+        fs.unlink(dest, () => {});
+        reject(err);
+      });
     });
+    req.on('error', reject);
   });
 }
 
-async function getLatestFileIdFromFolder(folderId, apiKey) {
+async function getLatestFileInfoFromFolder(folderId, apiKey) {
   if (apiKey) {
     try {
       const apiUrl = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+trashed=false&orderBy=modifiedTime+desc&fields=files(id,name,modifiedTime,mimeType)&key=${apiKey}`;
       const jsonText = await fetchText(apiUrl);
       const data = JSON.parse(jsonText);
       if (data.files && data.files.length > 0) {
-        const xlsxFile = data.files.find(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls') || f.name.endsWith('.csv') || (f.mimeType && (f.mimeType.includes('spreadsheet') || f.mimeType.includes('csv'))));
-        if (xlsxFile) {
-          console.log(`📌 Archivo más reciente encontrado vía API: ${xlsxFile.name} (Modificado: ${xlsxFile.modifiedTime})`);
-          return xlsxFile.id;
+        const file = data.files.find(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls') || f.name.endsWith('.csv') || (f.mimeType && (f.mimeType.includes('spreadsheet') || f.mimeType.includes('csv'))));
+        if (file) {
+          console.log(`📌 Archivo más reciente encontrado vía API: ${file.name} (Modificado: ${file.modifiedTime})`);
+          return { id: file.id, name: file.name, modifiedTime: file.modifiedTime };
         }
       }
     } catch (e) {
@@ -77,36 +84,32 @@ async function getLatestFileIdFromFolder(folderId, apiKey) {
             https.get(downloadUrl, { method: 'HEAD', headers: { 'User-Agent': 'Mozilla/5.0' } }, res => {
               if (res.statusCode === 302 || res.statusCode === 301 || res.statusCode === 303) {
                 https.get(res.headers.location, { method: 'HEAD' }, res2 => {
-                  resolve({
-                    id,
-                    lm: res2.headers['last-modified'] ? new Date(res2.headers['last-modified']).getTime() : 0
-                  });
-                }).on('error', () => resolve({ id, lm: 0 }));
+                  const lm = res2.headers['last-modified'] ? new Date(res2.headers['last-modified']).toISOString() : '';
+                  resolve({ id, lm });
+                }).on('error', () => resolve({ id, lm: '' }));
               } else {
-                resolve({
-                  id,
-                  lm: res.headers['last-modified'] ? new Date(res.headers['last-modified']).getTime() : 0
-                });
+                const lm = res.headers['last-modified'] ? new Date(res.headers['last-modified']).toISOString() : '';
+                resolve({ id, lm });
               }
-            }).on('error', () => resolve({ id, lm: 0 }));
+            }).on('error', () => resolve({ id, lm: '' }));
           });
           return headRes;
         } catch (e) {
-          return { id, lm: 0 };
+          return { id, lm: '' };
         }
       }));
 
-      fileInfos.sort((a, b) => b.lm - a.lm);
+      fileInfos.sort((a, b) => new Date(b.lm || 0) - new Date(a.lm || 0));
       if (fileInfos[0] && fileInfos[0].id) {
-        console.log(`📌 Seleccionado archivo más reciente (ID: ${fileInfos[0].id}, Fecha: ${new Date(fileInfos[0].lm).toISOString()})`);
-        return fileInfos[0].id;
+        console.log(`📌 Seleccionado archivo más reciente (ID: ${fileInfos[0].id}, Fecha: ${fileInfos[0].lm})`);
+        return { id: fileInfos[0].id, name: 'Propiedades.csv', modifiedTime: fileInfos[0].lm };
       }
     }
   } catch (e) {
     console.log('⚠️ No se pudo obtener la lista vía vista de carpeta:', e.message);
   }
 
-  return '';
+  return null;
 }
 
 function getColValue(row, ...possibleNames) {
@@ -197,19 +200,27 @@ function parseExcelOrCsv(fileBuffer) {
 
 async function main() {
   let fileToRead = '';
+  let fileModifiedTime = '';
+  let sourceFileName = '';
   const customArg = process.argv[2];
   const ROOT_CSV24 = path.join(__dirname, '..', 'Propiedades (24).csv');
   const ROOT_CSV = path.join(__dirname, '..', 'Propiedades.csv');
 
+  let targetFileId = DRIVE_FILE_ID;
+  let driveInfo = null;
+
   if (customArg && fs.existsSync(customArg)) {
     console.log(`📂 Usando archivo especificado: ${customArg}...`);
     fileToRead = customArg;
+    sourceFileName = path.basename(customArg);
   } else if (process.env.CI || process.env.FORCE_DRIVE) {
     if (DRIVE_FOLDER_ID) {
       console.log(`📂 Buscando el archivo Excel más reciente dentro de la carpeta Drive ID: ${DRIVE_FOLDER_ID}...`);
-      const folderLatestId = await getLatestFileIdFromFolder(DRIVE_FOLDER_ID, DRIVE_API_KEY);
-      if (folderLatestId) {
-        targetFileId = folderLatestId;
+      driveInfo = await getLatestFileInfoFromFolder(DRIVE_FOLDER_ID, DRIVE_API_KEY);
+      if (driveInfo && driveInfo.id) {
+        targetFileId = driveInfo.id;
+        fileModifiedTime = driveInfo.modifiedTime || '';
+        sourceFileName = driveInfo.name || 'Propiedades.csv';
       } else {
         console.log('⚠️ No se pudo resolver automáticamente el archivo desde la carpeta, usando DRIVE_FILE_ID de respaldo.');
       }
@@ -218,46 +229,64 @@ async function main() {
     if (targetFileId) {
       console.log(`📥 Descargando archivo desde Google Drive (ID: ${targetFileId})...`);
       const downloadUrl = `https://docs.google.com/uc?export=download&id=${targetFileId}`;
-      await downloadFile(downloadUrl, TEMP_XLSX);
+      const lm = await downloadFile(downloadUrl, TEMP_XLSX);
       fileToRead = TEMP_XLSX;
+      if (!fileModifiedTime && lm) fileModifiedTime = lm;
     } else if (fs.existsSync(ROOT_CSV24)) {
       console.log('📂 Usando Propiedades (24).csv local...');
       fileToRead = ROOT_CSV24;
+      sourceFileName = 'Propiedades (24).csv';
     } else if (fs.existsSync(ROOT_CSV)) {
       console.log('📂 Usando Propiedades.csv local...');
       fileToRead = ROOT_CSV;
+      sourceFileName = 'Propiedades.csv';
     } else if (fs.existsSync(ROOT_XLSX)) {
       console.log('📂 Usando Propiedades.xlsx local...');
       fileToRead = ROOT_XLSX;
+      sourceFileName = 'Propiedades.xlsx';
     }
   } else if (fs.existsSync(ROOT_CSV24)) {
     console.log('📂 Usando Propiedades (24).csv local...');
     fileToRead = ROOT_CSV24;
+    sourceFileName = 'Propiedades (24).csv';
   } else if (fs.existsSync(ROOT_CSV)) {
     console.log('📂 Usando Propiedades.csv local...');
     fileToRead = ROOT_CSV;
+    sourceFileName = 'Propiedades.csv';
   } else if (fs.existsSync(ROOT_XLSX)) {
     console.log('📂 Usando Propiedades.xlsx local...');
     fileToRead = ROOT_XLSX;
+    sourceFileName = 'Propiedades.xlsx';
   } else if (DRIVE_FOLDER_ID || DRIVE_FILE_ID) {
     if (DRIVE_FOLDER_ID) {
       console.log(`📂 Buscando el archivo Excel más reciente dentro de la carpeta Drive ID: ${DRIVE_FOLDER_ID}...`);
-      const folderLatestId = await getLatestFileIdFromFolder(DRIVE_FOLDER_ID, DRIVE_API_KEY);
-      if (folderLatestId) {
-        targetFileId = folderLatestId;
+      driveInfo = await getLatestFileInfoFromFolder(DRIVE_FOLDER_ID, DRIVE_API_KEY);
+      if (driveInfo && driveInfo.id) {
+        targetFileId = driveInfo.id;
+        fileModifiedTime = driveInfo.modifiedTime || '';
+        sourceFileName = driveInfo.name || 'Propiedades.csv';
       }
     }
     if (targetFileId) {
       console.log(`📥 Descargando archivo desde Google Drive (ID: ${targetFileId})...`);
       const downloadUrl = `https://docs.google.com/uc?export=download&id=${targetFileId}`;
-      await downloadFile(downloadUrl, TEMP_XLSX);
+      const lm = await downloadFile(downloadUrl, TEMP_XLSX);
       fileToRead = TEMP_XLSX;
+      if (!fileModifiedTime && lm) fileModifiedTime = lm;
     }
   }
 
   if (!fileToRead) {
     console.error('❌ ERROR: No se encontró ningún archivo para procesar.');
     process.exit(1);
+  }
+
+  if (!fileModifiedTime && fs.existsSync(fileToRead)) {
+    const stats = fs.statSync(fileToRead);
+    fileModifiedTime = stats.mtime.toISOString();
+  }
+  if (!sourceFileName) {
+    sourceFileName = path.basename(fileToRead);
   }
 
   console.log('🔄 Leyendo y convirtiendo archivo a data.json...');
@@ -360,14 +389,14 @@ async function main() {
     };
   });
 
-  const baseFileName = path.basename(fileToRead);
-  const versionMatch = baseFileName.match(/\((\d+)\)/) || baseFileName.match(/v?(\d+)/);
-  const csvVersion = versionMatch ? `CSV #${versionMatch[1]}` : (baseFileName.toLowerCase().endsWith('.csv') ? 'CSV' : 'Excel');
+  const finalFileName = sourceFileName || path.basename(fileToRead);
+  const versionMatch = finalFileName.match(/\((\d+)\)/) || finalFileName.match(/v?(\d+)/);
+  const csvVersion = versionMatch ? `CSV #${versionMatch[1]}` : (finalFileName.toLowerCase().endsWith('.csv') ? 'CSV' : 'Excel');
 
   const newJsonStr = JSON.stringify({
     version: csvVersion,
-    sourceFile: baseFileName,
-    updatedAt: new Date().toISOString(),
+    sourceFile: finalFileName,
+    updatedAt: fileModifiedTime || new Date().toISOString(),
     totalRows: jsonRows.length,
     rows: jsonRows
   }, null, 2);
