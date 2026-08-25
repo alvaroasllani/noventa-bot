@@ -1,10 +1,10 @@
-name: Sincronizar catálogo de Google Drive
+name: Sincronizar Excel de Google Drive
 
 on:
   repository_dispatch:
     types: [glide_sync]
   schedule:
-    # Se ejecuta automáticamente 15 veces al día como respaldo
+    # Respaldo automático
     - cron: '0 0,2,3,5,7,8,10,12,13,15,17,18,20,22,23 * * *'
   workflow_dispatch: # Permite ejecutar manualmente con un clic en GitHub
 
@@ -26,15 +26,13 @@ jobs:
       - name: Instalar dependencias
         run: npm install xlsx
 
-      - name: Descargar y procesar CSV o Excel
+      - name: Descargar y procesar Excel
         env:
-          DRIVE_FILE_ID: ${{ secrets.DRIVE_FILE_ID }}
-          DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
-          DRIVE_API_KEY: ${{ secrets.DRIVE_API_KEY }}
+          DRIVE_FOLDER_ID: '1FBlEYxCM8HrI9AAh_cLISbIgb8cCbbsT'
         run: node scripts/update-excel.js
 
       - name: Hacer commit y push si hay cambios
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "🤖 Sincronización automática del catálogo de 90 Bot"
+          commit_message: "🤖 Sincronización automática de data.json desde Google Drive"
           file_pattern: "data.json"

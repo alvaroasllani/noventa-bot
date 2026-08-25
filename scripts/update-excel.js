@@ -4,11 +4,11 @@ const https = require('https');
 const NinetyDataAdapter = require('../data-adapter.js');
 
 const DRIVE_FILE_ID = process.env.DRIVE_FILE_ID || '';
-const DRIVE_FOLDER_ID = process.env.DRIVE_FOLDER_ID || '';
+const DRIVE_FOLDER_ID = process.env.DRIVE_FOLDER_ID || '1FBlEYxCM8HrI9AAh_cLISbIgb8cCbbsT';
 const DRIVE_API_KEY = process.env.DRIVE_API_KEY || '';
 
 const ROOT_XLSX = path.join(__dirname, '..', 'Propiedades.xlsx');
-const TEMP_XLSX = path.join(__dirname, '..', 'temp_propiedades.xlsx');
+const TEMP_XLSX = path.join(__dirname, '..', 'temp_inmuebles.csv');
 const TARGET_JSON = path.join(__dirname, '..', 'data.json');
 
 function fetchText(url) {
@@ -55,19 +55,31 @@ function downloadFile(url, dest) {
 async function getLatestFileInfoFromFolder(folderId, apiKey) {
   if (apiKey) {
     try {
-      const apiUrl = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+trashed=false&orderBy=modifiedTime+desc&fields=files(id,name,modifiedTime,mimeType)&key=${apiKey}`;
+      const params = new URLSearchParams({
+        q: `'${folderId}' in parents and trashed=false`,
+        orderBy: 'modifiedTime desc',
+        pageSize: '1000',
+        fields: 'files(id,name,modifiedTime,mimeType)',
+        key: apiKey
+      });
+      const apiUrl = `https://www.googleapis.com/drive/v3/files?${params.toString()}`;
       const jsonText = await fetchText(apiUrl);
       const data = JSON.parse(jsonText);
       if (data.files && data.files.length > 0) {
-        const file = data.files.find(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls') || f.name.endsWith('.csv') || (f.mimeType && (f.mimeType.includes('spreadsheet') || f.mimeType.includes('csv'))));
+        const file = data.files.find(f => String(f.name || '').toLowerCase().endsWith('.csv'));
         if (file) {
-          console.log(`📌 Archivo más reciente encontrado vía API: ${file.name} (Modificado: ${file.modifiedTime})`);
+          console.log(`📌 CSV más reciente encontrado vía API: ${file.name} (Modificado: ${file.modifiedTime})`);
           return { id: file.id, name: file.name, modifiedTime: file.modifiedTime };
         }
       }
+      console.log('⚠️ La carpeta no contiene archivos CSV visibles para la API de Drive.');
     } catch (e) {
       console.log('⚠️ Error al consultar Drive API v3:', e.message);
     }
+
+    // Con API configurada evitamos inspeccionar el HTML de Drive, porque allí
+    // no es posible distinguir de forma segura un CSV de imágenes u otros archivos.
+    return null;
   }
 
   try {
@@ -168,7 +180,7 @@ async function main() {
     sourceFileName = path.basename(customArg);
   } else if (process.env.CI || process.env.FORCE_DRIVE) {
     if (DRIVE_FOLDER_ID) {
-      console.log(`📂 Buscando el archivo Excel más reciente dentro de la carpeta Drive ID: ${DRIVE_FOLDER_ID}...`);
+      console.log(`📂 Buscando el CSV más reciente dentro de la carpeta Drive ID: ${DRIVE_FOLDER_ID}...`);
       driveInfo = await getLatestFileInfoFromFolder(DRIVE_FOLDER_ID, DRIVE_API_KEY);
       if (driveInfo && driveInfo.id) {
         targetFileId = driveInfo.id;
@@ -184,6 +196,7 @@ async function main() {
       const downloadUrl = `https://docs.google.com/uc?export=download&id=${targetFileId}`;
       const lm = await downloadFile(downloadUrl, TEMP_XLSX);
       fileToRead = TEMP_XLSX;
+      if (!sourceFileName) sourceFileName = 'inmuebles.csv';
       if (!fileModifiedTime && lm) fileModifiedTime = lm;
     } else if (localInmueblesCsv) {
       console.log(`📂 Usando ${localInmueblesCsv.name} local...`);
@@ -220,7 +233,7 @@ async function main() {
     sourceFileName = 'Propiedades.xlsx';
   } else if (DRIVE_FOLDER_ID || DRIVE_FILE_ID) {
     if (DRIVE_FOLDER_ID) {
-      console.log(`📂 Buscando el archivo Excel más reciente dentro de la carpeta Drive ID: ${DRIVE_FOLDER_ID}...`);
+      console.log(`📂 Buscando el CSV más reciente dentro de la carpeta Drive ID: ${DRIVE_FOLDER_ID}...`);
       driveInfo = await getLatestFileInfoFromFolder(DRIVE_FOLDER_ID, DRIVE_API_KEY);
       if (driveInfo && driveInfo.id) {
         targetFileId = driveInfo.id;
@@ -355,18 +368,26 @@ async function main() {
   const versionMatch = finalFileName.match(/\((\d+)\)/) || finalFileName.match(/v?(\d+)/);
   const csvVersion = versionMatch ? `CSV #${versionMatch[1]}` : (finalFileName.toLowerCase().endsWith('.csv') ? 'CSV' : 'Excel');
 
-  const newJsonStr = JSON.stringify({
+  const nextJson = {
     version: csvVersion,
     sourceFile: finalFileName,
     updatedAt: fileModifiedTime || new Date().toISOString(),
     totalRows: jsonRows.length,
     publishableRows: jsonRows.filter(row => row.data && row.data['34Af3'] === 'si').length,
     rows: jsonRows
-  }, null, 2);
+  };
+
+  const newJsonStr = JSON.stringify(nextJson, null, 2);
   
   let oldJsonStr = '';
+  let oldJson = null;
   if (fs.existsSync(TARGET_JSON)) {
     oldJsonStr = fs.readFileSync(TARGET_JSON, 'utf-8');
+    try {
+      oldJson = JSON.parse(oldJsonStr);
+    } catch (e) {
+      console.warn('⚠️ data.json previo no es JSON válido y será reemplazado:', e.message);
+    }
   }
 
   if (fs.existsSync(TEMP_XLSX)) {
@@ -377,8 +398,19 @@ async function main() {
     }
   }
 
-  if (oldJsonStr.trim() === newJsonStr.trim()) {
-    console.log('✅ No se detectaron cambios en el archivo.');
+  const oldCatalog = oldJson ? JSON.stringify({
+    totalRows: oldJson.totalRows,
+    publishableRows: oldJson.publishableRows,
+    rows: oldJson.rows
+  }) : '';
+  const nextCatalog = JSON.stringify({
+    totalRows: nextJson.totalRows,
+    publishableRows: nextJson.publishableRows,
+    rows: nextJson.rows
+  });
+
+  if (oldCatalog && oldCatalog === nextCatalog) {
+    console.log('✅ El catálogo no cambió; se conserva data.json sin crear otro commit.');
   } else {
     fs.writeFileSync(TARGET_JSON, newJsonStr, 'utf-8');
     console.log(`✨ data.json actualizado correctamente con ${jsonRows.length} propiedades.`);
